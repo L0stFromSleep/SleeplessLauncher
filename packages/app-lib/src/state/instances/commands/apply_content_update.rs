@@ -1,5 +1,5 @@
 use crate::state::instances::{
-    ContentEntry, ContentSet, ContentSourceKind, InstanceFile,
+    ContentEntry, ContentProvider, ContentSet, ContentSourceKind, InstanceFile,
     adapters::sqlite::{content_rows, instance_rows},
 };
 use crate::state::{
@@ -98,6 +98,7 @@ async fn apply_content_update(
         DownloadReason::Update,
         Some(update.current_version_id.clone()),
         ContentSourceKind::Local,
+        ContentProvider::Modrinth,
         state,
     )
     .await?;
@@ -231,6 +232,7 @@ async fn download_planned_projects(
                         &update.update_version_id,
                         DownloadReason::Update,
                         Some(update.current_version_id.clone()),
+                        ContentProvider::Modrinth,
                         state,
                     )
                     .await?;
@@ -245,6 +247,7 @@ async fn download_planned_projects(
                         &dependency.version_id,
                         DownloadReason::Dependency,
                         Some(dependency.parent_version_id.clone()),
+                        ContentProvider::Modrinth,
                         state,
                     )
                     .await?;

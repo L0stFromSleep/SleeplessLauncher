@@ -7,6 +7,7 @@ import {
 	LanguagesIcon,
 	ModrinthIcon,
 	PaintbrushIcon,
+	PlugIcon,
 	Settings2Icon,
 	ShieldIcon,
 	ToggleRightIcon,
@@ -33,6 +34,7 @@ import AppearanceSettings from '@/components/ui/settings/display/AppearanceSetti
 import BehaviorSettings from '@/components/ui/settings/display/BehaviorSettings.vue'
 import FeatureFlagSettings from '@/components/ui/settings/display/FeatureFlagSettings.vue'
 import LanguageSettings from '@/components/ui/settings/display/LanguageSettings.vue'
+import CurseForgeSettings from '@/components/ui/settings/integrations/CurseForgeSettings.vue'
 import DefaultInstanceSettings from '@/components/ui/settings/instances/DefaultInstanceSettings.vue'
 import JavaSettings from '@/components/ui/settings/instances/JavaSettings.vue'
 import ResourceManagementSettings from '@/components/ui/settings/instances/ResourceManagementSettings.vue'
@@ -68,6 +70,10 @@ const tabCategories = defineMessages({
 	instances: {
 		id: 'app.settings.sidebar.label.instances',
 		defaultMessage: 'Instances',
+	},
+	integrations: {
+		id: 'app.settings.sidebar.label.integrations',
+		defaultMessage: 'Integrations',
 	},
 })
 
@@ -154,6 +160,15 @@ const tabs = [
 		category: tabCategories.instances,
 		icon: GaugeIcon,
 		content: ResourceManagementSettings,
+	},
+	{
+		name: defineMessage({
+			id: 'app.settings.tabs.curseforge',
+			defaultMessage: 'CurseForge',
+		}),
+		category: tabCategories.integrations,
+		icon: PlugIcon,
+		content: CurseForgeSettings,
 	},
 ]
 

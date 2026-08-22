@@ -41,6 +41,8 @@ pub mod minecraft_skins;
 mod cache;
 pub use self::cache::*;
 
+pub mod curseforge;
+
 mod friends;
 pub use self::friends::*;
 

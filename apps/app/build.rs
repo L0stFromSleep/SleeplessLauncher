@@ -51,6 +51,18 @@ fn main() {
                     ),
             )
             .plugin(
+                "curseforge",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "curseforge_search",
+                        "curseforge_get_mod",
+                        "curseforge_get_mod_files",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
                 "import",
                 InlinedPlugin::new()
                     .commands(&[
@@ -227,6 +239,7 @@ fn main() {
                         "instance_update_project",
                         "instance_add_project_from_version",
                         "instance_install_project_with_dependencies",
+                        "instance_install_curseforge_project_with_dependencies",
                         "instance_switch_project_version_with_dependencies",
                         "instance_add_project_from_path",
                         "instance_is_file_on_modrinth",

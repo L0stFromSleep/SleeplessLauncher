@@ -1,6 +1,6 @@
 use crate::state::instances::{
-    ContentRequirement, ContentSourceKind, Instance, InstanceFile,
-    adapters::sqlite::{content_rows, instance_rows},
+    ContentProvider, ContentRequirement, ContentSourceKind, Instance,
+    InstanceFile, adapters::sqlite::{content_rows, instance_rows},
 };
 use crate::state::{
     CacheBehaviour, CachedEntry, Dependency, DependencyType, KnownModrinthFile,
@@ -35,6 +35,7 @@ pub(crate) struct DownloadedProjectVersion {
     pub project_type: ProjectType,
     pub project_id: String,
     pub version_id: String,
+    pub provider: ContentProvider,
 }
 
 pub(crate) struct InstanceInstallProjectRequest {
@@ -42,6 +43,7 @@ pub(crate) struct InstanceInstallProjectRequest {
     pub version_id: Option<String>,
     pub content_type: ContentType,
     pub selected: ResolutionPreferences,
+    pub provider: ContentProvider,
 }
 
 struct CachedEntryContentProvider<'a> {
@@ -176,12 +178,9 @@ pub(crate) async fn resolve_install_plan(
             state,
         )
         .await?;
-    let provider = CachedEntryContentProvider {
-        state,
-        cache_behaviour: Some(CacheBehaviour::MustRevalidate),
-    };
     let content_type = request.content_type;
-    let request = ResolveContentRequest {
+    let provider = request.provider;
+    let resolve_request = ResolveContentRequest {
         project_id: request.project_id,
         version_id: request.version_id,
         content_type,
@@ -194,20 +193,46 @@ pub(crate) async fn resolve_install_plan(
         existing_project_ids,
     };
 
-    modrinth_content_management::resolve_content(provider, request)
-        .await
-        .map_err(resolver_error)
+    match provider {
+        ContentProvider::Modrinth => {
+            let metadata_provider = CachedEntryContentProvider {
+                state,
+                cache_behaviour: Some(CacheBehaviour::MustRevalidate),
+            };
+            modrinth_content_management::resolve_content(
+                metadata_provider,
+                resolve_request,
+            )
+            .await
+            .map_err(resolver_error)
+        }
+        ContentProvider::CurseForge => {
+            let metadata_provider =
+                crate::state::curseforge::CurseForgeContentProvider::new(
+                    state,
+                )
+                .await?;
+            modrinth_content_management::resolve_content(
+                metadata_provider,
+                resolve_request,
+            )
+            .await
+            .map_err(resolver_error)
+        }
+    }
 }
 
 pub(crate) async fn install_resolved_content_plan(
     instance_id: &str,
     plan: &ResolveContentPlan,
+    provider: ContentProvider,
     state: &State,
 ) -> crate::Result<()> {
     add_resolved_content(
         instance_id,
         &plan.primary,
         DownloadReason::Standalone,
+        provider,
         state,
     )
     .await?;
@@ -216,6 +241,7 @@ pub(crate) async fn install_resolved_content_plan(
             instance_id,
             dependency,
             DownloadReason::Dependency,
+            provider,
             state,
         )
         .await?;
@@ -252,6 +278,7 @@ pub(crate) async fn switch_project_version_with_dependencies(
             version_id: Some(version_id.to_string()),
             content_type,
             selected: ResolutionPreferences::default(),
+            provider: ContentProvider::Modrinth,
         },
         state,
     )
@@ -264,6 +291,7 @@ pub(crate) async fn switch_project_version_with_dependencies(
         DownloadReason::Update,
         None,
         ContentSourceKind::Local,
+        ContentProvider::Modrinth,
         state,
     )
     .await?;
@@ -279,6 +307,7 @@ pub(crate) async fn switch_project_version_with_dependencies(
             instance_id,
             dependency,
             DownloadReason::Dependency,
+            ContentProvider::Modrinth,
             state,
         )
         .await?;
@@ -302,6 +331,7 @@ async fn add_resolved_content(
     instance_id: &str,
     content: &ResolvedContent,
     reason: DownloadReason,
+    provider: ContentProvider,
     state: &State,
 ) -> crate::Result<String> {
     add_project_from_version(
@@ -310,6 +340,7 @@ async fn add_resolved_content(
         reason,
         content.dependent_on_version_id.clone(),
         ContentSourceKind::Local,
+        provider,
         state,
     )
     .await
@@ -341,12 +372,14 @@ pub(crate) async fn resolve_content_scope(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn add_project_from_version(
     instance_id: &str,
     version_id: &str,
     reason: DownloadReason,
     dependent_on_version_id: Option<String>,
     source_kind: ContentSourceKind,
+    provider: ContentProvider,
     state: &State,
 ) -> crate::Result<String> {
     let downloaded = download_project_version(
@@ -354,6 +387,7 @@ pub(crate) async fn add_project_from_version(
         version_id,
         reason,
         dependent_on_version_id,
+        provider,
         state,
     )
     .await?;
@@ -363,6 +397,40 @@ pub(crate) async fn add_project_from_version(
 }
 
 pub(crate) async fn download_project_version(
+    instance_id: &str,
+    version_id: &str,
+    reason: DownloadReason,
+    dependent_on_version_id: Option<String>,
+    provider: ContentProvider,
+    state: &State,
+) -> crate::Result<DownloadedProjectVersion> {
+    match provider {
+        ContentProvider::Modrinth => {
+            download_modrinth_version(
+                instance_id,
+                version_id,
+                reason,
+                dependent_on_version_id,
+                state,
+            )
+            .await
+        }
+        ContentProvider::CurseForge => {
+            // `version_id` doubles as the CurseForge file id for this
+            // provider; the mod id is looked up from the file itself.
+            download_curseforge_file(
+                instance_id,
+                version_id,
+                reason,
+                dependent_on_version_id,
+                state,
+            )
+            .await
+        }
+    }
+}
+
+async fn download_modrinth_version(
     instance_id: &str,
     version_id: &str,
     reason: DownloadReason,
@@ -432,6 +500,75 @@ pub(crate) async fn download_project_version(
         project_type,
         project_id,
         version_id,
+        provider: ContentProvider::Modrinth,
+    })
+}
+
+async fn download_curseforge_file(
+    instance_id: &str,
+    file_id: &str,
+    reason: DownloadReason,
+    dependent_on_version_id: Option<String>,
+    state: &State,
+) -> crate::Result<DownloadedProjectVersion> {
+    let scope = resolve_content_scope(instance_id, None, state).await?;
+    let content_set =
+        content_rows::get_content_set(&scope.content_set_id, &state.pool)
+            .await?
+            .ok_or_else(|| {
+                crate::ErrorKind::InputError(format!(
+                    "Unknown content set {}",
+                    scope.content_set_id
+                ))
+            })?;
+    let api_key = crate::state::curseforge::api_key(state).await?;
+
+    let file = crate::state::curseforge::client::get_file(
+        &api_key, file_id, state,
+    )
+    .await?;
+    let cf_mod =
+        crate::state::curseforge::client::get_mod(&api_key, &file.mod_id.to_string(), state)
+            .await?;
+    if cf_mod.allow_mod_distribution == Some(false) {
+        return Err(crate::ErrorKind::InputError(format!(
+            "The author of \"{}\" has disabled third-party downloads for this mod on CurseForge.",
+            cf_mod.name
+        ))
+        .into());
+    }
+    let download_url = file.download_url.clone().ok_or_else(|| {
+        crate::ErrorKind::InputError(format!(
+            "CurseForge did not provide a download URL for file {file_id}. \
+             The author may have disabled third-party downloads for this file."
+        ))
+    })?;
+    let sha1 = file.sha1();
+
+    let download_meta = DownloadMeta {
+        reason,
+        game_version: content_set.game_version,
+        loader: content_set.loader.as_str().to_string(),
+        dependent_on: dependent_on_version_id,
+    };
+    let bytes = fetch::fetch(
+        &download_url,
+        sha1.as_deref(),
+        Some(&download_meta),
+        None,
+        &state.fetch_semaphore,
+        &state.pool,
+    )
+    .await?;
+
+    Ok(DownloadedProjectVersion {
+        file_name: file.file_name.clone(),
+        bytes,
+        sha1,
+        project_type: ProjectType::Mod,
+        project_id: file.mod_id.to_string(),
+        version_id: file.id.to_string(),
+        provider: ContentProvider::CurseForge,
     })
 }
 
@@ -448,6 +585,7 @@ pub(crate) async fn add_downloaded_project_version(
         project_type,
         project_id,
         version_id,
+        provider,
     } = downloaded;
 
     add_project_bytes(
@@ -457,6 +595,7 @@ pub(crate) async fn add_downloaded_project_version(
         sha1.as_deref(),
         Some(project_type),
         source_kind,
+        provider,
         Some(project_id.as_str()),
         Some(version_id.as_str()),
         state,
@@ -484,6 +623,7 @@ pub(crate) async fn add_project_from_path(
         None,
         project_type,
         ContentSourceKind::Local,
+        ContentProvider::Modrinth,
         None,
         None,
         state,
@@ -491,6 +631,7 @@ pub(crate) async fn add_project_from_path(
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn add_project_bytes(
     instance_id: &str,
     file_name: &str,
@@ -498,6 +639,7 @@ pub(crate) async fn add_project_bytes(
     hash: Option<&str>,
     project_type: Option<ProjectType>,
     source_kind: ContentSourceKind,
+    provider: ContentProvider,
     project_id: Option<&str>,
     version_id: Option<&str>,
     state: &State,
@@ -566,6 +708,7 @@ pub(crate) async fn add_project_bytes(
         project_id,
         version_id,
         source_kind,
+        provider,
         &mut tx,
     )
     .await?;
@@ -614,6 +757,7 @@ pub(crate) async fn record_project_file(
         project_id,
         version_id,
         source_kind,
+        ContentProvider::Modrinth,
         &mut tx,
     )
     .await?;
@@ -716,6 +860,7 @@ pub(crate) async fn toggle_disable_project(
             None,
             None,
             ContentSourceKind::Local,
+            ContentProvider::Modrinth,
             &mut tx,
         )
         .await?;
@@ -938,6 +1083,7 @@ async fn index_existing_file(
         None,
         None,
         ContentSourceKind::Local,
+        ContentProvider::Modrinth,
         tx,
     )
     .await?;
@@ -945,6 +1091,7 @@ async fn index_existing_file(
     Ok(file)
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn upsert_entry_for_file(
     scope: &ContentScope,
     file: &InstanceFile,
@@ -952,6 +1099,7 @@ async fn upsert_entry_for_file(
     project_id: Option<&str>,
     version_id: Option<&str>,
     source_kind: ContentSourceKind,
+    provider: ContentProvider,
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
 ) -> crate::Result<()> {
     content_rows::upsert_content_entry_from_parts(
@@ -963,6 +1111,7 @@ async fn upsert_entry_for_file(
             project_id,
             version_id,
             source_kind,
+            provider,
             server_requirement: ContentRequirement::Required,
             client_requirement: ContentRequirement::Required,
             enabled: file.enabled,

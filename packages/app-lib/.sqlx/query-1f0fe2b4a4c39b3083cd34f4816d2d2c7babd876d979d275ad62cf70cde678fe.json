@@ -67,6 +67,11 @@
         "name": "modified_at",
         "ordinal": 12,
         "type_info": "Integer"
+      },
+      {
+        "name": "provider",
+        "ordinal": 13,
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -80,6 +85,7 @@
       false,
       true,
       true,
+      false,
       false,
       false,
       false,

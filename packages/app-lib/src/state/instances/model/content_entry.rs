@@ -34,6 +34,35 @@ impl ContentRequirement {
     }
 }
 
+/// Which upstream mod registry a piece of content originated from.
+///
+/// Orthogonal to [`ContentSourceKind`], which describes *how* content was
+/// installed (single add vs. modpack vs. sync), not which registry it came
+/// from.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContentProvider {
+    Modrinth,
+    CurseForge,
+}
+
+impl ContentProvider {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Modrinth => "modrinth",
+            Self::CurseForge => "curseforge",
+        }
+    }
+
+    pub fn from_str(value: &str) -> crate::Result<Self> {
+        match value {
+            "modrinth" => Ok(Self::Modrinth),
+            "curseforge" => Ok(Self::CurseForge),
+            other => Err(unknown_value("content provider", other)),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ContentEntry {
     pub id: String,
@@ -44,6 +73,7 @@ pub struct ContentEntry {
     pub project_id: Option<String>,
     pub version_id: Option<String>,
     pub source_kind: ContentSourceKind,
+    pub provider: ContentProvider,
     pub server_requirement: ContentRequirement,
     pub client_requirement: ContentRequirement,
     pub enabled: bool,

@@ -39,13 +39,17 @@ import type { LocationQuery } from 'vue-router'
 import { useRoute, useRouter } from 'vue-router'
 
 import ContextMenu from '@/components/ui/context-menu/index.vue'
+import CurseForgeProjectCard from '@/components/ui/CurseForgeProjectCard.vue'
 import { useAppServerBrowse } from '@/composables/browse/use-app-server-browse'
 import { useAppEvent } from '@/composables/use-app-event'
 import { useAppSettings } from '@/composables/use-app-settings.ts'
 import { get_project, get_search_results_v3, get_version_many } from '@/helpers/cache.js'
+import * as curseforge from '@/helpers/curseforge.ts'
+import type { CfMod } from '@/helpers/curseforge.ts'
 import {
 	get_installed_project_ids as getInstalledProjectIds,
 	getInstanceIconUrl,
+	install_curseforge_project_with_dependencies,
 	list as listInstances,
 } from '@/helpers/instance'
 import { get_loader_versions as getLoaderManifest } from '@/helpers/metadata'
@@ -1325,10 +1329,105 @@ provideBrowseManager({
 	offline,
 	lockedFilterMessages,
 })
+
+// --- CurseForge (app-only, kept separate from the shared Modrinth search/grid above) ---
+const showCurseForge = ref(false)
+const curseforgeQuery = ref('')
+const curseforgeResults = ref<CfMod[]>([])
+const curseforgeTotalHits = ref(0)
+const curseforgeSearching = ref(false)
+const curseforgeInstalling = ref<Set<number>>(new Set())
+const curseforgeInstalled = ref<Set<number>>(new Set())
+let curseforgeSearchToken = 0
+
+const canInstallCurseForge = computed(() => !!instance.value)
+
+async function searchCurseForge() {
+	const token = ++curseforgeSearchToken
+	curseforgeSearching.value = true
+	try {
+		const results = await curseforge.search(
+			curseforgeQuery.value,
+			instance.value?.game_version ?? null,
+			0,
+			20,
+		)
+		if (token !== curseforgeSearchToken) return
+		curseforgeResults.value = results.hits
+		curseforgeTotalHits.value = results.total_hits
+	} catch (err) {
+		if (token === curseforgeSearchToken) handleError(err)
+	} finally {
+		if (token === curseforgeSearchToken) curseforgeSearching.value = false
+	}
+}
+
+let curseforgeSearchDebounce: ReturnType<typeof setTimeout> | undefined
+watch([showCurseForge, curseforgeQuery], ([shown]) => {
+	if (!shown) return
+	clearTimeout(curseforgeSearchDebounce)
+	curseforgeSearchDebounce = setTimeout(searchCurseForge, 300)
+})
+
+async function installCurseForgeMod(mod: CfMod) {
+	if (!instance.value) return
+	const file = mod.latestFiles[0]
+	if (!file) {
+		handleError(new Error(`No files available for "${mod.name}" on CurseForge`))
+		return
+	}
+
+	curseforgeInstalling.value = new Set([...curseforgeInstalling.value, mod.id])
+	try {
+		await install_curseforge_project_with_dependencies(instance.value.id, {
+			mod_id: mod.id.toString(),
+			file_id: file.id.toString(),
+			content_type: 'mod',
+		})
+		curseforgeInstalled.value = new Set([...curseforgeInstalled.value, mod.id])
+	} catch (err) {
+		handleError(err)
+	} finally {
+		const next = new Set(curseforgeInstalling.value)
+		next.delete(mod.id)
+		curseforgeInstalling.value = next
+	}
+}
 </script>
 
 <template>
 	<div class="flex flex-col gap-3 p-6">
+		<div class="flex flex-col gap-3 bg-bg-raised rounded-xl p-4">
+			<button
+				class="flex items-center gap-2 bg-transparent border-none cursor-pointer p-0 m-0 text-contrast font-bold text-lg"
+				@click="showCurseForge = !showCurseForge"
+			>
+				{{ showCurseForge ? '▾' : '▸' }} CurseForge
+			</button>
+			<template v-if="showCurseForge">
+				<input
+					v-model="curseforgeQuery"
+					type="text"
+					placeholder="Search CurseForge..."
+					class="bg-bg-input border-solid border-[1px] border-button-border rounded-lg px-3 py-2 text-primary"
+				/>
+				<p v-if="!canInstallCurseForge" class="m-0 text-sm text-secondary">
+					Open Explore from an instance to install CurseForge content.
+				</p>
+				<div v-if="curseforgeSearching" class="text-secondary">Searching...</div>
+				<div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+					<CurseForgeProjectCard
+						v-for="mod in curseforgeResults"
+						:key="mod.id"
+						:mod="mod"
+						:installing="curseforgeInstalling.has(mod.id)"
+						:installed="curseforgeInstalled.has(mod.id)"
+						:can-install="canInstallCurseForge"
+						@install="installCurseForgeMod(mod)"
+					/>
+				</div>
+			</template>
+		</div>
 		<BrowsePageLayout>
 			<template #after>
 				<ContextMenu ref="contextMenuRef" @option-clicked="handleOptionsClick">

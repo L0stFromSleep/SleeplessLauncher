@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
 use crate::state::instances::{
-    ContentEntry, ContentRequirement, ContentSet, ContentSetRemoteRef,
-    ContentSetRemoteRefType, ContentSetStatus, ContentSetSyncProvider,
-    ContentSetSyncState, ContentSetSyncStatus, ContentSourceKind,
-    ContentUpdateCheck, InstanceFile,
+    ContentEntry, ContentProvider, ContentRequirement, ContentSet,
+    ContentSetRemoteRef, ContentSetRemoteRefType, ContentSetStatus,
+    ContentSetSyncProvider, ContentSetSyncState, ContentSetSyncStatus,
+    ContentSourceKind, ContentUpdateCheck, InstanceFile,
 };
 use crate::state::{ModLoader, ProjectType, ReleaseChannel};
 use chrono::{DateTime, TimeZone, Utc};
@@ -134,6 +134,7 @@ pub(crate) struct ContentEntryRow {
     pub project_id: Option<String>,
     pub version_id: Option<String>,
     pub source_kind: String,
+    pub provider: String,
     pub server_requirement: String,
     pub client_requirement: String,
     pub enabled: i64,
@@ -154,6 +155,7 @@ impl TryFrom<ContentEntryRow> for ContentEntry {
             project_id: row.project_id,
             version_id: row.version_id,
             source_kind: ContentSourceKind::from_str(&row.source_kind)?,
+            provider: ContentProvider::from_str(&row.provider)?,
             server_requirement: ContentRequirement::from_str(
                 &row.server_requirement,
             )?,
@@ -729,6 +731,7 @@ async fn insert_content_entry(
     let project_id = entry.project_id.as_deref();
     let version_id = entry.version_id.as_deref();
     let source_kind = entry.source_kind.as_str();
+    let provider = entry.provider.as_str();
     let server_requirement = entry.server_requirement.as_str();
     let client_requirement = entry.client_requirement.as_str();
     let enabled = i64::from(entry.enabled);
@@ -746,13 +749,14 @@ async fn insert_content_entry(
 			project_id,
 			version_id,
 			source_kind,
+			provider,
 			server_requirement,
 			client_requirement,
 			enabled,
 			added_at,
 			modified_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		",
     )
     .bind(id)
@@ -763,6 +767,7 @@ async fn insert_content_entry(
     .bind(project_id)
     .bind(version_id)
     .bind(source_kind)
+    .bind(provider)
     .bind(server_requirement)
     .bind(client_requirement)
     .bind(enabled)
@@ -1059,6 +1064,7 @@ pub(crate) struct UpsertContentEntry<'a> {
     pub project_id: Option<&'a str>,
     pub version_id: Option<&'a str>,
     pub source_kind: ContentSourceKind,
+    pub provider: ContentProvider,
     pub server_requirement: ContentRequirement,
     pub client_requirement: ContentRequirement,
     pub enabled: bool,
@@ -1113,6 +1119,7 @@ pub(crate) async fn upsert_content_entry_from_parts(
     let id = format!("content-entry:{}", Uuid::new_v4());
     let project_type = input.project_type.get_name();
     let source_kind = input.source_kind.as_str();
+    let provider = input.provider.as_str();
     let server_requirement = input.server_requirement.as_str();
     let client_requirement = input.client_requirement.as_str();
     let enabled = i64::from(input.enabled);
@@ -1130,13 +1137,14 @@ pub(crate) async fn upsert_content_entry_from_parts(
 				project_id,
 				version_id,
 				source_kind,
+				provider,
 				server_requirement,
 				client_requirement,
 				enabled,
 				added_at,
 				modified_at
 			)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (content_set_id, file_id)
 				WHERE file_id IS NOT NULL
 			DO UPDATE SET
@@ -1145,6 +1153,7 @@ pub(crate) async fn upsert_content_entry_from_parts(
 				project_id = excluded.project_id,
 				version_id = excluded.version_id,
 				source_kind = excluded.source_kind,
+				provider = excluded.provider,
 				server_requirement = excluded.server_requirement,
 				client_requirement = excluded.client_requirement,
 				enabled = excluded.enabled,
@@ -1158,6 +1167,7 @@ pub(crate) async fn upsert_content_entry_from_parts(
 				project_id,
 				version_id,
 				source_kind,
+				provider,
 				server_requirement,
 				client_requirement,
 				enabled,
@@ -1172,6 +1182,7 @@ pub(crate) async fn upsert_content_entry_from_parts(
             input.project_id,
             input.version_id,
             source_kind,
+            provider,
             server_requirement,
             client_requirement,
             enabled,
@@ -1195,13 +1206,14 @@ pub(crate) async fn upsert_content_entry_from_parts(
 				project_id,
 				version_id,
 				source_kind,
+				provider,
 				server_requirement,
 				client_requirement,
 				enabled,
 				added_at,
 				modified_at
 			)
-			VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (content_set_id, project_id, version_id)
 				WHERE file_id IS NULL
 					AND project_id IS NOT NULL
@@ -1210,6 +1222,7 @@ pub(crate) async fn upsert_content_entry_from_parts(
 				instance_id = excluded.instance_id,
 				project_type = excluded.project_type,
 				source_kind = excluded.source_kind,
+				provider = excluded.provider,
 				server_requirement = excluded.server_requirement,
 				client_requirement = excluded.client_requirement,
 				enabled = excluded.enabled,
@@ -1223,6 +1236,7 @@ pub(crate) async fn upsert_content_entry_from_parts(
 				project_id,
 				version_id,
 				source_kind,
+				provider,
 				server_requirement,
 				client_requirement,
 				enabled,
@@ -1236,6 +1250,7 @@ pub(crate) async fn upsert_content_entry_from_parts(
             project_id,
             version_id,
             source_kind,
+            provider,
             server_requirement,
             client_requirement,
             enabled,
@@ -1257,13 +1272,14 @@ pub(crate) async fn upsert_content_entry_from_parts(
 				project_id,
 				version_id,
 				source_kind,
+				provider,
 				server_requirement,
 				client_requirement,
 				enabled,
 				added_at,
 				modified_at
 			)
-			VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			RETURNING
 				id,
 				instance_id,
@@ -1273,6 +1289,7 @@ pub(crate) async fn upsert_content_entry_from_parts(
 				project_id,
 				version_id,
 				source_kind,
+				provider,
 				server_requirement,
 				client_requirement,
 				enabled,
@@ -1286,6 +1303,7 @@ pub(crate) async fn upsert_content_entry_from_parts(
             input.project_id,
             input.version_id,
             source_kind,
+            provider,
             server_requirement,
             client_requirement,
             enabled,

@@ -252,6 +252,23 @@ export async function install_project_with_dependencies(
 	})
 }
 
+export interface InstallCurseForgeProjectWithDependenciesRequest {
+	mod_id: string
+	file_id?: string | null
+	content_type: Labrinth.Content.v3.ContentType
+	selected?: ResolutionPreferences
+}
+
+export async function install_curseforge_project_with_dependencies(
+	instanceId: string,
+	request: InstallCurseForgeProjectWithDependenciesRequest,
+): Promise<ResolveContentPlan> {
+	return await invoke('plugin:instance|instance_install_curseforge_project_with_dependencies', {
+		instanceId,
+		request,
+	})
+}
+
 export async function switch_project_version_with_dependencies(
 	instanceId: string,
 	projectPath: string,

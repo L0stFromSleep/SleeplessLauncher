@@ -38,6 +38,8 @@ pub struct Settings {
     pub prev_custom_dir: Option<String>,
     pub migrated: bool,
 
+    pub curseforge_api_key: Option<String>,
+
     pub developer_mode: bool,
     pub feature_flags: HashMap<FeatureFlag, bool>,
 
@@ -92,6 +94,7 @@ impl Settings {
                 custom_dir, prev_custom_dir, migrated, json(feature_flags) feature_flags, toggle_sidebar,
                 skipped_update, pending_update_toast_for_version, auto_download_updates,
                 sync_theme_across_devices, sync_behavior_across_devices,
+                curseforge_api_key,
                 version
             FROM settings
             "
@@ -152,6 +155,7 @@ impl Settings {
             auto_download_updates: res.auto_download_updates.map(|x| x == 1),
             sync_theme_across_devices: res.sync_theme_across_devices == 1,
             sync_behavior_across_devices: res.sync_behavior_across_devices == 1,
+            curseforge_api_key: res.curseforge_api_key,
             version: res.version as usize,
         })
     }
@@ -215,7 +219,9 @@ impl Settings {
                 sync_theme_across_devices = $32,
                 sync_behavior_across_devices = $33,
 
-                version = $34
+                curseforge_api_key = $34,
+
+                version = $35
             ",
             max_concurrent_writes,
             max_concurrent_downloads,
@@ -250,6 +256,7 @@ impl Settings {
             self.auto_download_updates,
             self.sync_theme_across_devices,
             self.sync_behavior_across_devices,
+            self.curseforge_api_key,
             version,
         )
         .execute(exec)

@@ -1,5 +1,6 @@
 //! API for interacting with Theseus
 pub mod cache;
+pub mod curseforge;
 pub mod friends;
 pub mod handler;
 pub mod instance;
@@ -23,9 +24,9 @@ pub mod data {
     pub use crate::state::{
         AppliedContentSetPatch, CacheBehaviour, CacheValueType, ContentFile,
         ContentItem, ContentItemOwner, ContentItemProject, ContentItemVersion,
-        CreateInstance, Credentials, Dependency, DirectoryInfo, EditInstance,
-        Hooks, InstanceIconBackground, InstanceIconConfig,
-        InstanceInstallCandidate, InstanceInstallTarget,
+        ContentProvider, CreateInstance, Credentials, Dependency,
+        DirectoryInfo, EditInstance, Hooks, InstanceIconBackground,
+        InstanceIconConfig, InstanceInstallCandidate, InstanceInstallTarget,
         InstanceLaunchOverridesPatch, InstanceLink, InstanceMetadata,
         JavaVersion, LinkedModpackInfo, MemorySettings, ModLoader,
         ModrinthCredentials, OnboardingChecklist, Organization, OwnerType,
@@ -33,6 +34,7 @@ pub mod data {
         SearchResults, SearchResultsV3, Settings, SharedInstanceAttachment,
         SharedInstanceRole, TeamMember, Theme, User, UserFriend, Version,
         WindowSize,
+        curseforge::{CfAsset, CfAuthor, CfCategory, CfFile, CfMod, CfModLinks},
     };
     pub use ariadne::users::UserStatus;
     pub use modrinth_content_management::{
@@ -46,8 +48,8 @@ pub mod prelude {
         State,
         data::*,
         event::CommandPayload,
-        install, instance, jre, metadata, minecraft_auth, mr_auth,
-        onboarding_checklist, pack, process, settings,
+        curseforge, install, instance, jre, metadata, minecraft_auth,
+        mr_auth, onboarding_checklist, pack, process, settings,
         state::{ReleaseChannel, db_backup::app_db_backup_dir},
         util::{
             io::{IOError, canonicalize},

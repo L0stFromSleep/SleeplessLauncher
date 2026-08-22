@@ -13,6 +13,7 @@ use theseus::data::{
     SharedInstanceAttachment as CoreSharedInstanceAttachment,
     SharedInstanceRole,
 };
+use theseus::instance::InstallCurseForgeProjectWithDependenciesRequest;
 use theseus::instance::InstallProjectWithDependenciesRequest;
 use theseus::instance::QuickPlayType;
 use theseus::prelude::*;
@@ -48,6 +49,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             instance_update_project,
             instance_add_project_from_version,
             instance_install_project_with_dependencies,
+            instance_install_curseforge_project_with_dependencies,
             instance_switch_project_version_with_dependencies,
             instance_add_project_from_path,
             instance_is_file_on_modrinth,
@@ -700,6 +702,18 @@ pub async fn instance_install_project_with_dependencies(
     request: InstallProjectWithDependenciesRequest,
 ) -> Result<ResolveContentPlan> {
     Ok(theseus::instance::install_project_with_dependencies(
+        instance_id,
+        request,
+    )
+    .await?)
+}
+
+#[tauri::command]
+pub async fn instance_install_curseforge_project_with_dependencies(
+    instance_id: &str,
+    request: InstallCurseForgeProjectWithDependenciesRequest,
+) -> Result<ResolveContentPlan> {
+    Ok(theseus::instance::install_curseforge_project_with_dependencies(
         instance_id,
         request,
     )

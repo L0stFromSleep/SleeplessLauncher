@@ -15,8 +15,9 @@ use crate::api::instance::{
 use crate::api::pack::install_from::CreatePackLocation;
 use crate::state::instances::adapters::sqlite::content_rows;
 use crate::state::{
-    CachedEntry, ContentSetSyncStatus, ContentSourceKind, InstanceLink,
-    ProjectType, SharedInstanceAttachmentInput, SharedInstanceRole, State,
+    CachedEntry, ContentProvider, ContentSetSyncStatus, ContentSourceKind,
+    InstanceLink, ProjectType, SharedInstanceAttachmentInput,
+    SharedInstanceRole, State,
 };
 use crate::util::fetch::{DownloadReason, REQWEST_CLIENT};
 use futures::StreamExt;
@@ -287,6 +288,7 @@ pub(super) async fn apply_shared_instance_update(
                 DownloadReason::Update,
                 Some(update.current.version_id),
                 ContentSourceKind::SharedInstance,
+                ContentProvider::Modrinth,
                 state,
             )
             .await?;
@@ -317,6 +319,7 @@ pub(super) async fn apply_shared_instance_update(
             DownloadReason::Standalone,
             None,
             ContentSourceKind::SharedInstance,
+            ContentProvider::Modrinth,
             state,
         )
         .await?;
@@ -658,6 +661,7 @@ pub(super) async fn apply_shared_instance_content(
                 DownloadReason::Standalone,
                 None,
                 ContentSourceKind::SharedInstance,
+                ContentProvider::Modrinth,
                 state,
             )
             .await?;
@@ -888,6 +892,7 @@ async fn install_shared_instance_external_file(
         None,
         Some(project_type),
         ContentSourceKind::SharedInstance,
+        crate::state::instances::ContentProvider::Modrinth,
         None,
         None,
         state,

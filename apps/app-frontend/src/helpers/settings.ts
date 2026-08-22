@@ -63,6 +63,8 @@ export type AppSettings = {
 	prev_custom_dir?: string | null
 	migrated: boolean
 
+	curseforge_api_key?: string | null
+
 	developer_mode: boolean
 	feature_flags: Record<FeatureFlag, boolean>
 

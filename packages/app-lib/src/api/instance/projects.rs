@@ -2,7 +2,8 @@ use crate::event::emit::{emit_instance, emit_loading, init_loading};
 use crate::event::{InstancePayloadType, LoadingBarType};
 use crate::state::instances::adapters::sqlite::instance_rows;
 use crate::state::{
-    CacheBehaviour, CachedEntry, ContentSourceKind, ProjectType, State,
+    CacheBehaviour, CachedEntry, ContentProvider, ContentSourceKind,
+    ProjectType, State,
 };
 use crate::util::fetch;
 use modrinth_content_management::{
@@ -90,6 +91,7 @@ pub async fn add_project_from_version(
             reason,
             dependent_on_version_id,
             crate::state::ContentSourceKind::Local,
+            ContentProvider::Modrinth,
             &state,
         )
         .await?;
@@ -103,19 +105,59 @@ pub async fn install_project_with_dependencies(
     instance_id: &str,
     request: InstallProjectWithDependenciesRequest,
 ) -> crate::Result<ResolveContentPlan> {
-    let state = State::get().await?;
-    let metadata = super::get::get(instance_id).await?.ok_or_else(|| {
-        crate::ErrorKind::InputError("Unknown instance".to_string())
-    })?;
-    ensure_metadata_content_unlocked(&metadata)?;
-    let plan = crate::state::instances::commands::resolve_install_plan(
+    install_resolved_project_with_dependencies(
         instance_id,
         crate::state::instances::commands::InstanceInstallProjectRequest {
             project_id: request.project_id,
             version_id: request.version_id,
             content_type: request.content_type,
             selected: request.selected,
+            provider: ContentProvider::Modrinth,
         },
+    )
+    .await
+}
+
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct InstallCurseForgeProjectWithDependenciesRequest {
+    pub mod_id: String,
+    pub file_id: Option<String>,
+    pub content_type: ContentType,
+    #[serde(default)]
+    pub selected: ResolutionPreferences,
+}
+
+#[tracing::instrument]
+pub async fn install_curseforge_project_with_dependencies(
+    instance_id: &str,
+    request: InstallCurseForgeProjectWithDependenciesRequest,
+) -> crate::Result<ResolveContentPlan> {
+    install_resolved_project_with_dependencies(
+        instance_id,
+        crate::state::instances::commands::InstanceInstallProjectRequest {
+            project_id: request.mod_id,
+            version_id: request.file_id,
+            content_type: request.content_type,
+            selected: request.selected,
+            provider: ContentProvider::CurseForge,
+        },
+    )
+    .await
+}
+
+async fn install_resolved_project_with_dependencies(
+    instance_id: &str,
+    request: crate::state::instances::commands::InstanceInstallProjectRequest,
+) -> crate::Result<ResolveContentPlan> {
+    let state = State::get().await?;
+    let metadata = super::get::get(instance_id).await?.ok_or_else(|| {
+        crate::ErrorKind::InputError("Unknown instance".to_string())
+    })?;
+    ensure_metadata_content_unlocked(&metadata)?;
+    let provider = request.provider;
+    let plan = crate::state::instances::commands::resolve_install_plan(
+        instance_id,
+        request,
         &state,
     )
     .await?;
@@ -127,6 +169,7 @@ pub async fn install_project_with_dependencies(
         match crate::state::instances::commands::install_resolved_content_plan(
             &instance_id,
             &install_plan,
+            provider,
             &state,
         )
         .await
