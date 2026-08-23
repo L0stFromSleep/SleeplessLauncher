@@ -68,7 +68,6 @@ generated
 !apps/app-frontend/src/generated/app-events/postcard/index.d.ts
 !apps/app-frontend/src/generated/app-events/postcard/index.js
 !apps/app-frontend/src/generated/app-events/postcard/package.json
-.env
 
 # app testing dir
 app-playground-data/*
@@ -95,3 +94,6 @@ apps/frontend/src/public/robots.txt
 /test_result.md
 
 packages/tooling-config/script-utils/import-sort.js
+
+# Graphify
+graphify-out/

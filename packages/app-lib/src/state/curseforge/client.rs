@@ -10,7 +10,8 @@
 //! revisited before heavier use.
 
 use super::models::{
-    CfDataEnvelope, CfFile, CfMod, CfSearchEnvelope, MINECRAFT_GAME_ID,
+    CfDataEnvelope, CfFile, CfFingerprintMatch, CfFingerprintMatchesEnvelope,
+    CfMod, CfSearchEnvelope, MINECRAFT_GAME_ID,
 };
 use crate::State;
 use crate::util::fetch;
@@ -45,10 +46,21 @@ async fn fetch_curseforge<T: DeserializeOwned>(
 }
 
 /// `GET /v1/mods/search`
+///
+/// `sort_field` is CurseForge's `SearchSortField` enum (2 = Popularity,
+/// 3 = LastUpdated, 6 = TotalDownloads, 11 = ReleasedDate, ...) -- without
+/// it, CurseForge returns results in its own default order (roughly
+/// "Featured"), which is *not* sorted by downloads/date/etc. at all. Since
+/// only a `page_size`-sized page is ever fetched, omitting this means the
+/// handful of mods fetched (and then sorted client-side) are the wrong ones
+/// entirely, not just wrongly ordered.
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn search_mods(
     api_key: &str,
     query: &str,
     game_version: Option<&str>,
+    class_id: Option<i64>,
+    sort_field: Option<u32>,
     page: u32,
     page_size: u32,
     state: &State,
@@ -65,6 +77,12 @@ pub(crate) async fn search_mods(
             urlencoding::encode(game_version)
         ));
     }
+    if let Some(class_id) = class_id {
+        path.push_str(&format!("&classId={class_id}"));
+    }
+    if let Some(sort_field) = sort_field {
+        path.push_str(&format!("&sortField={sort_field}&sortOrder=desc"));
+    }
 
     let response: CfSearchEnvelope =
         fetch_curseforge(Method::GET, &path, api_key, None, state).await?;
@@ -80,6 +98,19 @@ pub(crate) async fn get_mod(
 ) -> crate::Result<CfMod> {
     let path = format!("mods/{mod_id}");
     let response: CfDataEnvelope<CfMod> =
+        fetch_curseforge(Method::GET, &path, api_key, None, state).await?;
+
+    Ok(response.data)
+}
+
+/// `GET /v1/mods/{modId}/description`
+pub(crate) async fn get_mod_description(
+    api_key: &str,
+    mod_id: &str,
+    state: &State,
+) -> crate::Result<String> {
+    let path = format!("mods/{mod_id}/description");
+    let response: CfDataEnvelope<String> =
         fetch_curseforge(Method::GET, &path, api_key, None, state).await?;
 
     Ok(response.data)
@@ -111,7 +142,33 @@ pub(crate) async fn get_file(
             "Invalid CurseForge file id: {file_id}"
         ))
     })?;
-    let body = serde_json::json!({ "fileIds": [file_id] });
+    let files = get_files(api_key, &[file_id], state).await?;
+
+    files.into_iter().next().ok_or_else(|| {
+        crate::ErrorKind::InputError(format!(
+            "CurseForge file {file_id} not found"
+        ))
+        .into()
+    })
+}
+
+/// `POST /v1/mods/files`, resolving many file ids (e.g. every mod file
+/// referenced by a modpack manifest) in one request. CurseForge doesn't
+/// document a hard cap on `fileIds` length for this endpoint; this is a
+/// conservative chunk size for callers with very large modpacks, not a
+/// documented API limit.
+pub(crate) const GET_FILES_MAX_BATCH_SIZE: usize = 500;
+
+pub(crate) async fn get_files(
+    api_key: &str,
+    file_ids: &[i64],
+    state: &State,
+) -> crate::Result<Vec<CfFile>> {
+    if file_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let body = serde_json::json!({ "fileIds": file_ids });
     let response: CfDataEnvelope<Vec<CfFile>> = fetch_curseforge(
         Method::POST,
         "mods/files",
@@ -121,10 +178,33 @@ pub(crate) async fn get_file(
     )
     .await?;
 
-    response.data.into_iter().next().ok_or_else(|| {
-        crate::ErrorKind::InputError(format!(
-            "CurseForge file {file_id} not found"
-        ))
-        .into()
-    })
+    Ok(response.data)
+}
+
+/// `POST /v1/fingerprints`, resolving many file fingerprints (see
+/// `super::models::cf_fingerprint`) to their exact CurseForge file matches
+/// in one request. Same conservative per-request chunk size as
+/// [`get_files`] -- CurseForge doesn't document a hard cap here either.
+pub(crate) const GET_FINGERPRINT_MATCHES_MAX_BATCH_SIZE: usize = 500;
+
+pub(crate) async fn get_fingerprint_matches(
+    api_key: &str,
+    fingerprints: &[u32],
+    state: &State,
+) -> crate::Result<Vec<CfFingerprintMatch>> {
+    if fingerprints.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let body = serde_json::json!({ "fingerprints": fingerprints });
+    let response: CfFingerprintMatchesEnvelope = fetch_curseforge(
+        Method::POST,
+        "fingerprints",
+        api_key,
+        Some(body),
+        state,
+    )
+    .await?;
+
+    Ok(response.data.exact_matches)
 }

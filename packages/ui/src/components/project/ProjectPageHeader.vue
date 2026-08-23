@@ -30,6 +30,7 @@
 						:tooltip="formatNumber(project.downloads)"
 					/>
 					<PageHeaderMetadataNumberItem
+						v-if="!hideFollowers"
 						:icon="HeartIcon"
 						:value="project.followers"
 						:label="formatMessage(messages.followersStat, { count: project.followers })"
@@ -89,10 +90,12 @@ withDefaults(
 		project: HeaderProject
 		projectV3?: HeaderProjectV3 | null
 		showStatusBadge?: boolean
+		hideFollowers?: boolean
 	}>(),
 	{
 		projectV3: null,
 		showStatusBadge: false,
+		hideFollowers: false,
 	},
 )
 

@@ -207,6 +207,45 @@ impl DirectoryInfo {
                 "Could not find valid config dir".to_string(),
             ))?;
 
+        // A configured custom directory that no longer exists on disk (e.g.
+        // its drive was unplugged, or it was renamed/moved outside the
+        // launcher's knowledge) would otherwise make every instance/Java
+        // operation fail against a phantom path with no way to recover.
+        // Falling back to the default directory here lets the move-detection
+        // logic below run normally and correct any stored absolute paths
+        // (java_versions.path, instance icon paths, ...) that still pointed
+        // at the missing directory.
+        //
+        // This also specifically repairs a one-time corruption from this
+        // launcher's own history: it used to share the "ModrinthApp" app
+        // identifier (and therefore directory) with the official Modrinth
+        // App before being separated from it, and an early, since-removed
+        // migration attempt renamed that directory without updating this
+        // stored value, leaving `custom_dir` pointing at the old identifier
+        // even after Windows/other processes had since recreated an empty
+        // "ModrinthApp" directory (via ordinary directory-creation calls
+        // that don't distinguish "belongs to us" from "leftover"), which
+        // defeats a plain existence check.
+        let legacy_modrinth_app_dir =
+            dirs::data_dir().map(|dir| dir.join("ModrinthApp"));
+        let is_stale = |dir: &str| {
+            !Path::new(dir).exists()
+                || (app_identifier != "ModrinthApp"
+                    && legacy_modrinth_app_dir.as_deref()
+                        == Some(Path::new(dir)))
+        };
+        if let Some(ref custom_dir) = settings.custom_dir
+            && is_stale(custom_dir)
+        {
+            tracing::warn!(
+                "Configured launcher directory {} is stale; falling back to \
+                 the default directory {}",
+                custom_dir,
+                app_dir.display()
+            );
+            settings.custom_dir = None;
+        }
+
         if let Some(ref prev_custom_dir) = settings.prev_custom_dir {
             let prev_dir = PathBuf::from(prev_custom_dir);
 

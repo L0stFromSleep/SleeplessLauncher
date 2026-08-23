@@ -34,7 +34,10 @@ pub mod data {
         SearchResults, SearchResultsV3, Settings, SharedInstanceAttachment,
         SharedInstanceRole, TeamMember, Theme, User, UserFriend, Version,
         WindowSize,
-        curseforge::{CfAsset, CfAuthor, CfCategory, CfFile, CfMod, CfModLinks},
+        curseforge::{
+            CfAsset, CfAuthor, CfCategory, CfFile, CfMod, CfModLinks,
+            CfScreenshot,
+        },
     };
     pub use ariadne::users::UserStatus;
     pub use modrinth_content_management::{

@@ -766,6 +766,9 @@ fn link_project_and_version(
             project_id,
             version_id,
         } => (Some(project_id), Some(version_id)),
+        InstanceLink::CurseForgeModpack { mod_id, file_id } => {
+            (Some(mod_id), Some(file_id))
+        }
         InstanceLink::ServerProject { project_id } => (Some(project_id), None),
         InstanceLink::ServerProjectModpack {
             server_project_id,

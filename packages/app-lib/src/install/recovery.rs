@@ -401,6 +401,11 @@ fn display_from_request(state: &InstallJobState) -> Option<InstallJobDisplay> {
                 title,
                 icon_url,
                 ..
+            }
+            | crate::api::pack::install_from::CreatePackLocation::FromCurseForgeFile {
+                title,
+                icon_url,
+                ..
             } => Some(InstallJobDisplay {
                 title: title.clone(),
                 icon: icon_url.clone(),

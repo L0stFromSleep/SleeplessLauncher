@@ -26,6 +26,11 @@ pub enum InstanceLink {
         instance_ids: Vec<Uuid>,
         active_instance_id: Option<Uuid>,
     },
+    /// A modpack installed from a CurseForge modpack file.
+    CurseForgeModpack {
+        mod_id: String,
+        file_id: String,
+    },
     /// A custom modpack source without a Modrinth project/version link.
     ImportedModpack {
         project_id: Option<String>,

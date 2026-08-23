@@ -210,6 +210,7 @@ pub(crate) async fn resolve_install_plan(
             let metadata_provider =
                 crate::state::curseforge::CurseForgeContentProvider::new(
                     state,
+                    content_type,
                 )
                 .await?;
             modrinth_content_management::resolve_content(
@@ -561,11 +562,16 @@ async fn download_curseforge_file(
     )
     .await?;
 
+    let project_type = cf_mod
+        .class_id
+        .and_then(crate::state::curseforge::project_type_for_class_id)
+        .unwrap_or(ProjectType::Mod);
+
     Ok(DownloadedProjectVersion {
         file_name: file.file_name.clone(),
         bytes,
         sha1,
-        project_type: ProjectType::Mod,
+        project_type,
         project_id: file.mod_id.to_string(),
         version_id: file.id.to_string(),
         provider: ContentProvider::CurseForge,
@@ -718,6 +724,7 @@ pub(crate) async fn add_project_bytes(
     Ok(relative_path)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn record_project_file(
     instance_id: &str,
     relative_path: &str,
@@ -725,6 +732,7 @@ pub(crate) async fn record_project_file(
     size: u64,
     project_type: ProjectType,
     source_kind: ContentSourceKind,
+    provider: ContentProvider,
     project_id: Option<&str>,
     version_id: Option<&str>,
     state: &State,
@@ -757,7 +765,7 @@ pub(crate) async fn record_project_file(
         project_id,
         version_id,
         source_kind,
-        ContentProvider::Modrinth,
+        provider,
         &mut tx,
     )
     .await?;

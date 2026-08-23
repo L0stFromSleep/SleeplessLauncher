@@ -9,7 +9,7 @@ use crate::install::{
 use crate::pack::install_from::{
     EnvType, PackFile, PackFileHash, set_instance_information,
 };
-use crate::state::instances::ContentSourceKind;
+use crate::state::instances::{ContentProvider, ContentSourceKind};
 use crate::state::{
     CachedEntry, CachedFile, EditInstance, InstanceInstallStage, SideType,
     cache_file_hash,
@@ -39,10 +39,10 @@ use std::path::{Path, PathBuf};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 
-type ExtractProgressFn<'a> = dyn FnMut(u64) -> Pin<Box<dyn Future<Output = crate::Result<()>> + Send + 'a>>
+pub(crate) type ExtractProgressFn<'a> = dyn FnMut(u64) -> Pin<Box<dyn Future<Output = crate::Result<()>> + Send + 'a>>
     + Send
     + 'a;
-type HashProgressFn<'a> = dyn FnMut(u64) -> crate::Result<()> + Send + 'a;
+pub(crate) type HashProgressFn<'a> = dyn FnMut(u64) -> crate::Result<()> + Send + 'a;
 const MODPACK_CONTENT_DOWNLOAD_CONCURRENCY: usize = 4;
 const MRPACK_WARNING_IGNORED_EXTENSIONS: &[&str] = &["rpo"];
 
@@ -124,14 +124,16 @@ impl ModpackContentInstallContext {
     }
 }
 
-enum MrpackZipReader {
+/// Generic zip-archive reader shared by both the `.mrpack` and CurseForge
+/// modpack installers (see `install_curseforge_pack.rs`).
+pub(crate) enum PackZipReader {
     Memory(async_zip::tokio::read::seek::ZipFileReader<Cursor<bytes::Bytes>>),
-    // Local imports stay on disk so large .mrpacks do not have to fit in memory.
+    // Local imports stay on disk so large packs do not have to fit in memory.
     File(FsZipFileReader),
 }
 
-impl MrpackZipReader {
-    async fn new(file: &CreatePackFile) -> crate::Result<Self> {
+impl PackZipReader {
+    pub(crate) async fn new(file: &CreatePackFile) -> crate::Result<Self> {
         match file {
             CreatePackFile::Bytes(file) => Ok(Self::Memory(
                 SeekZipFileReader::with_tokio(Cursor::new(file.clone()))
@@ -152,14 +154,14 @@ impl MrpackZipReader {
         }
     }
 
-    fn file(&self) -> &async_zip::ZipFile {
+    pub(crate) fn file(&self) -> &async_zip::ZipFile {
         match self {
             Self::Memory(reader) => reader.file(),
             Self::File(reader) => reader.file(),
         }
     }
 
-    async fn read_entry_to_string(
+    pub(crate) async fn read_entry_to_string(
         &mut self,
         index: usize,
     ) -> crate::Result<String> {
@@ -178,7 +180,7 @@ impl MrpackZipReader {
         Ok(value)
     }
 
-    async fn hash_entry(
+    pub(crate) async fn hash_entry(
         &mut self,
         index: usize,
         progress: Option<&mut HashProgressFn<'_>>,
@@ -195,7 +197,7 @@ impl MrpackZipReader {
         }
     }
 
-    async fn extract_entry(
+    pub(crate) async fn extract_entry(
         &mut self,
         index: usize,
         path: &Path,
@@ -263,7 +265,7 @@ pub(crate) async fn get_external_files_from_mrpack(
     file: &CreatePackFile,
     mut progress: impl FnMut(u64, u64) -> crate::Result<()> + Send,
 ) -> crate::Result<Vec<String>> {
-    let mut zip_reader = MrpackZipReader::new(file).await?;
+    let mut zip_reader = PackZipReader::new(file).await?;
     let Some(manifest_idx) =
         zip_reader.file().entries().iter().position(|entry| {
             matches!(entry.filename().as_str(), Ok("modrinth.index.json"))
@@ -370,7 +372,7 @@ pub(crate) async fn get_external_files_from_mrpack(
 pub(crate) async fn get_external_file_hashing_size_from_mrpack(
     file: &CreatePackFile,
 ) -> crate::Result<u64> {
-    let zip_reader = MrpackZipReader::new(file).await?;
+    let zip_reader = PackZipReader::new(file).await?;
     Ok(zip_reader
         .file()
         .entries()
@@ -487,7 +489,7 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
                 .build(),
         )
         .await?;
-    let mut zip_reader = MrpackZipReader::new(&file).await?;
+    let mut zip_reader = PackZipReader::new(&file).await?;
     let instance_full_path =
         crate::api::instance::get_full_path(&instance_id).await?;
     let modpack_details = InstallPhaseDetails::Modpack {
@@ -926,6 +928,7 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
                                             .pack_version_id
                                             .as_deref(),
                                     ),
+                                    ContentProvider::Modrinth,
                                     file_info.map(|file| {
                                         file.project_id.as_str()
                                     }),
@@ -1112,6 +1115,7 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
                             size,
                             project_type,
                             modpack_source_kind(version_id.as_deref()),
+                            ContentProvider::Modrinth,
                             None,
                             None,
                             state,
@@ -1129,6 +1133,20 @@ pub(crate) async fn install_zipped_mrpack_files_with_reporter(
     if !icon_exists && potential_icon.exists() {
         crate::api::instance::edit_icon(&instance_id, Some(&potential_icon))
             .await?;
+    }
+
+    // Override files not listed in modrinth.index.json (resource packs,
+    // shaders, etc. bundled directly into the pack rather than resolved as
+    // Modrinth projects) got no project/version above -- try to identify
+    // them against both providers now so they don't show as "Uploaded".
+    // Must never fail the install itself.
+    if let Err(err) =
+        crate::state::reconcile_unresolved_content(&instance_id, state).await
+    {
+        tracing::warn!(
+            "Failed to reconcile unresolved content for instance {instance_id} \
+             after modpack install: {err}"
+        );
     }
 
     crate::launcher::install_minecraft_for_instance_id_with_reporter(
@@ -1164,7 +1182,7 @@ pub async fn remove_all_related_files(
     mrpack_file: CreatePackFile,
 ) -> crate::Result<()> {
     // Updates can remove files from a locally imported or downloaded pack, so share the same reader path.
-    let mut zip_reader = MrpackZipReader::new(&mrpack_file).await?;
+    let mut zip_reader = PackZipReader::new(&mrpack_file).await?;
 
     // Extract index of modrinth.index.json
     let Some(manifest_idx) = zip_reader.file().entries().iter().position(|f| {

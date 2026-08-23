@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-use super::instances::ContentSourceKind;
+use super::instances::{ContentProvider, ContentSourceKind};
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -136,6 +136,7 @@ pub struct ContentFile {
 pub struct FileMetadata {
     pub project_id: String,
     pub version_id: String,
+    pub provider: ContentProvider,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq, Hash)]

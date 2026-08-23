@@ -38,6 +38,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             instance_content,
             instance_get_content_items,
             instance_refresh_content_updates,
+            instance_reconcile_content,
             instance_get_dependencies_as_content_items,
             instance_get_linked_modpack_info,
             instance_get_linked_modpack_content,
@@ -120,6 +121,10 @@ pub enum InstanceLink {
     ModrinthModpack {
         project_id: String,
         version_id: String,
+    },
+    CurseForgeModpack {
+        mod_id: String,
+        file_id: String,
     },
     ServerProject {
         project_id: String,
@@ -291,6 +296,9 @@ impl InstanceLink {
                 project_id,
                 version_id,
             }),
+            CoreInstanceLink::CurseForgeModpack { mod_id, file_id } => {
+                Some(Self::CurseForgeModpack { mod_id, file_id })
+            }
             CoreInstanceLink::ServerProject { project_id } => {
                 Some(Self::ServerProject { project_id })
             }
@@ -349,6 +357,9 @@ impl InstanceLink {
                 project_id,
                 version_id,
             }),
+            Self::CurseForgeModpack { mod_id, file_id } => {
+                Ok(CoreInstanceLink::CurseForgeModpack { mod_id, file_id })
+            }
             Self::ServerProject { project_id } => {
                 Ok(CoreInstanceLink::ServerProject { project_id })
             }
@@ -581,6 +592,11 @@ pub async fn instance_get_content_items(
 #[tauri::command]
 pub async fn instance_refresh_content_updates(instance_id: &str) -> Result<()> {
     Ok(theseus::instance::refresh_content_updates(instance_id).await?)
+}
+
+#[tauri::command]
+pub async fn instance_reconcile_content(instance_id: &str) -> Result<()> {
+    Ok(theseus::instance::reconcile_content(instance_id).await?)
 }
 
 #[tauri::command]

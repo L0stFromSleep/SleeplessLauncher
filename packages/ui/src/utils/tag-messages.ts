@@ -3,6 +3,14 @@ import { capitalizeString } from '@modrinth/utils'
 import { defineMessages, type MessageDescriptor, type VIntlFormatters } from '../composables/i18n'
 
 export const loaderMessages = defineMessages({
+	curseforge: {
+		id: 'tag.loader.curseforge',
+		defaultMessage: 'CurseForge',
+	},
+	modrinth: {
+		id: 'tag.loader.modrinth',
+		defaultMessage: 'Modrinth',
+	},
 	babric: {
 		id: 'tag.loader.babric',
 		defaultMessage: 'Babric',
@@ -578,14 +586,23 @@ export const DEFAULT_SHADER_LOADERS: string[] = ['iris', 'optifine', 'vanilla']
 
 const DEFAULT_LOADER_NAMES = new Set([...DEFAULT_MOD_LOADERS, ...DEFAULT_SHADER_LOADERS])
 
+// "modrinth"/"curseforge" are registered under the loader message category
+// purely so they get a formatted name + icon like real loaders (used by the
+// "source" search filter) -- they aren't loaders, so callers must check this
+// before treating a tag as excludable via `excludeLoaders`.
+export const SOURCE_TAGS = new Set(['modrinth', 'curseforge'])
+
 // sort by:
 // 1. categories, alphabetically
 // 2. default loaders, alphabetically
 // 3. other loaders, alphabetically
+
 export function sortTagsForDisplay(tags: string[]): string[] {
 	const isLoader = (tag: string) => getTagMessage(tag, 'loader') !== undefined
-	const loaders = tags.filter(isLoader)
-	const categories = tags.filter((tag) => !isLoader(tag))
+	const sources = tags.filter((tag) => SOURCE_TAGS.has(tag))
+	const loaders = tags.filter((tag) => !SOURCE_TAGS.has(tag) && isLoader(tag))
+	const categories = tags.filter((tag) => !SOURCE_TAGS.has(tag) && !isLoader(tag))
+	sources.sort((a, b) => a.localeCompare(b))
 	categories.sort((a, b) => a.localeCompare(b))
 	loaders.sort((a, b) => {
 		const aDefault = DEFAULT_LOADER_NAMES.has(a)
@@ -593,7 +610,7 @@ export function sortTagsForDisplay(tags: string[]): string[] {
 		if (aDefault !== bDefault) return aDefault ? -1 : 1
 		return a.localeCompare(b)
 	})
-	return [...categories, ...loaders]
+	return [...sources, ...categories, ...loaders]
 }
 
 export const categoryHeaderMessages = defineMessages({

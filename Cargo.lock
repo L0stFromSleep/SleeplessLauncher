@@ -11089,6 +11089,7 @@ dependencies = [
  "itertools 0.14.0",
  "json5",
  "modrinth-content-management",
+ "murmur2",
  "notify",
  "notify-debouncer-mini",
  "p256",

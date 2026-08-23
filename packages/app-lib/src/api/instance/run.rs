@@ -292,6 +292,7 @@ fn server_play_project_id(link: &InstanceLink) -> Option<&String> {
         } => Some(project_id),
         InstanceLink::Unmanaged
         | InstanceLink::ModrinthModpack { .. }
+        | InstanceLink::CurseForgeModpack { .. }
         | InstanceLink::ModrinthHosting { .. }
         | InstanceLink::ImportedModpack { .. }
         | InstanceLink::SharedInstance { .. } => None,
@@ -340,6 +341,7 @@ pub async fn try_update_playtime_by_instance_id(
             } => Some(version_id.clone()),
             InstanceLink::Unmanaged
             | InstanceLink::ServerProject { .. }
+            | InstanceLink::CurseForgeModpack { .. }
             | InstanceLink::ModrinthHosting { .. }
             | InstanceLink::ImportedModpack { .. }
             | InstanceLink::SharedInstance { .. } => None,

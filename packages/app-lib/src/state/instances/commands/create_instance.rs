@@ -237,6 +237,9 @@ fn content_source_kind(link: &InstanceLink) -> ContentSourceKind {
         InstanceLink::ModrinthModpack { .. } => {
             ContentSourceKind::ModrinthModpack
         }
+        InstanceLink::CurseForgeModpack { .. } => {
+            ContentSourceKind::CurseForgeModpack
+        }
         InstanceLink::ServerProject { .. }
         | InstanceLink::ServerProjectModpack { .. } => {
             ContentSourceKind::ServerProject

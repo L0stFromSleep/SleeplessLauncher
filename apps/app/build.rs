@@ -57,6 +57,7 @@ fn main() {
                         "curseforge_search",
                         "curseforge_get_mod",
                         "curseforge_get_mod_files",
+                        "curseforge_get_mod_description",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,
@@ -221,6 +222,7 @@ fn main() {
                         "instance_content",
                         "instance_get_content_items",
                         "instance_refresh_content_updates",
+                        "instance_reconcile_content",
                         "instance_get_dependencies_as_content_items",
                         "instance_get_linked_modpack_info",
                         "instance_get_linked_modpack_content",

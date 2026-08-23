@@ -31,12 +31,23 @@ export interface PackLocationVersionId {
 	icon_url?: string | null
 }
 
+export interface PackLocationCurseForgeFile {
+	type: 'fromCurseForgeFile'
+	mod_id: string
+	file_id: string
+	title: string
+	icon_url?: string | null
+}
+
 export interface PackLocationFile {
 	type: 'fromFile'
 	path: string
 }
 
-export type CreatePackLocation = PackLocationVersionId | PackLocationFile
+export type CreatePackLocation =
+	| PackLocationVersionId
+	| PackLocationCurseForgeFile
+	| PackLocationFile
 
 export interface InstallModpackPreview {
 	name: string

@@ -105,6 +105,12 @@ export default new createRouter({
 			],
 		},
 		{
+			path: '/curseforge-project/:id',
+			name: 'CurseForgeProject',
+			component: Pages.CurseForgeProject,
+			props: true,
+		},
+		{
 			path: '/instance/:id',
 			name: 'Instance',
 			component: Instance.Index,

@@ -92,6 +92,13 @@ export async function refresh_content_updates(instanceId: string): Promise<void>
 	return await invoke('plugin:instance|instance_refresh_content_updates', { instanceId })
 }
 
+/// Re-checks every content file with no known project against both
+/// Modrinth and CurseForge by file hash, persisting any matches so they
+/// stop showing as "Uploaded".
+export async function reconcile_content(instanceId: string): Promise<void> {
+	return await invoke('plugin:instance|instance_reconcile_content', { instanceId })
+}
+
 // Linked modpack info returned from backend
 export interface LinkedModpackInfo {
 	project: Labrinth.Projects.v2.Project

@@ -74,6 +74,17 @@ pub async fn get_content_items(
     crate::state::list_content(instance_id, None, cache_behaviour, &state).await
 }
 
+/// Re-checks every content file with no known project against both
+/// Modrinth and CurseForge by file hash, persisting any matches found so
+/// they stop showing as "Uploaded". See
+/// `crate::state::instances::commands::reconcile_content`.
+#[tracing::instrument]
+pub async fn reconcile_content(instance_id: &str) -> crate::Result<()> {
+    let state = State::get().await?;
+    crate::state::reconcile_unresolved_content(instance_id, &state).await?;
+    Ok(())
+}
+
 #[tracing::instrument]
 pub async fn refresh_content_updates(instance_id: &str) -> crate::Result<()> {
     let state = State::get().await?;

@@ -99,6 +99,13 @@ pub enum CreatePackLocation {
         title: String,
         icon_url: Option<String>,
     },
+    // Create a pack from a CurseForge modpack file
+    FromCurseForgeFile {
+        mod_id: String,
+        file_id: String,
+        title: String,
+        icon_url: Option<String>,
+    },
     // Create a pack from a file (such as an .mrpack for installing from a file, or a folder name for importing)
     FromFile {
         path: PathBuf,
@@ -192,6 +199,17 @@ pub async fn get_instance_from_pack(
                 project_id,
                 version_id,
             }),
+            ..Default::default()
+        }),
+        CreatePackLocation::FromCurseForgeFile {
+            mod_id,
+            file_id,
+            title,
+            icon_url,
+        } => Ok(CreatePackInstance {
+            name: title,
+            icon_url,
+            link: Some(InstanceLink::CurseForgeModpack { mod_id, file_id }),
             ..Default::default()
         }),
         CreatePackLocation::FromFile { path } => {
@@ -484,6 +502,138 @@ pub(crate) async fn generate_pack_from_version_id_with_reporter(
             override_title: Some(title),
             project_id: Some(project_id),
             version_id: Some(version_id),
+            instance_id,
+            source_filename: None,
+        },
+    })
+}
+
+/// Downloads a CurseForge modpack file, mirroring
+/// `generate_pack_from_version_id_with_reporter` for Modrinth versions --
+/// CurseForge doesn't provide a direct download URL for a file up front, so
+/// this resolves the file (and its parent mod, for the distribution-allowed
+/// check and icon) via the CurseForge API first.
+#[tracing::instrument(skip(reporter))]
+pub(crate) async fn generate_pack_from_curseforge_file_with_reporter(
+    mod_id: String,
+    file_id: String,
+    title: String,
+    icon_url: Option<String>,
+    instance_id: String,
+    reason: DownloadReason,
+    reporter: InstallProgressReporter,
+) -> crate::Result<CreatePack> {
+    let state = State::get().await?;
+    let api_key = crate::state::curseforge::api_key(&state).await?;
+
+    let cf_mod =
+        crate::state::curseforge::client::get_mod(&api_key, &mod_id, &state)
+            .await?;
+    if cf_mod.allow_mod_distribution == Some(false) {
+        return Err(crate::ErrorKind::InputError(format!(
+            "The author of \"{}\" has disabled third-party downloads for this modpack on CurseForge.",
+            cf_mod.name
+        ))
+        .into());
+    }
+    if cf_mod.class_id.is_some_and(|id| id != crate::state::curseforge::class_id::MODPACKS)
+    {
+        return Err(crate::ErrorKind::InputError(format!(
+            "\"{}\" is not a CurseForge modpack.",
+            cf_mod.name
+        ))
+        .into());
+    }
+    let file = crate::state::curseforge::client::get_file(
+        &api_key, &file_id, &state,
+    )
+    .await?;
+    let download_url = file.download_url.clone().ok_or_else(|| {
+        crate::ErrorKind::InputError(format!(
+            "CurseForge did not provide a download URL for file {file_id}. \
+             The author may have disabled third-party downloads for this file."
+        ))
+    })?;
+    let sha1 = file.sha1();
+
+    let metadata =
+        crate::api::instance::get(&instance_id)
+            .await?
+            .ok_or_else(|| {
+                crate::ErrorKind::InputError(format!(
+                    "Unknown instance {instance_id}"
+                ))
+            })?;
+
+    let download_meta = DownloadMeta {
+        reason,
+        game_version: metadata.applied_content_set.game_version.clone(),
+        loader: metadata.applied_content_set.loader.as_str().to_string(),
+        dependent_on: Some(file_id.clone()),
+    };
+
+    let details = InstallPhaseDetails::Modpack {
+        project_id: Some(mod_id.clone()),
+        version_id: Some(file_id.clone()),
+        title: Some(title.clone()),
+    };
+    reporter
+        .update(InstallPhaseId::DownloadingPackFile, None, details.clone())
+        .await?;
+
+    let context = InstallErrorContext::new("download modpack file")
+        .urls(vec![download_url.clone()])
+        .maybe_expected_hash(sha1.clone())
+        .project_id(mod_id.clone())
+        .version_id(file_id.clone())
+        .build();
+    reporter.set_context(context).await?;
+    let file_bytes = fetch(
+        &download_url,
+        sha1.as_deref(),
+        Some(&download_meta),
+        None,
+        &state.fetch_semaphore,
+        &state.pool,
+    )
+    .await?;
+
+    reporter
+        .update(InstallPhaseId::ResolvingPack, None, details.clone())
+        .await?;
+
+    let icon_url = icon_url.or_else(|| cf_mod.logo.map(|logo| logo.url));
+    let icon = if let Some(icon_url) = icon_url {
+        let icon_bytes = fetch(
+            &icon_url,
+            None,
+            None,
+            None,
+            &state.fetch_semaphore,
+            &state.pool,
+        )
+        .await?;
+
+        Some(crate::api::instance::cache_icon(icon_bytes, &state).await?)
+    } else {
+        None
+    };
+
+    if let Some(ref icon_path) = icon {
+        let _ = crate::api::instance::edit_icon(
+            &instance_id,
+            Some(icon_path.as_path()),
+        )
+        .await;
+    }
+
+    Ok(CreatePack {
+        file: CreatePackFile::Bytes(file_bytes),
+        description: CreatePackDescription {
+            icon,
+            override_title: Some(title),
+            project_id: Some(mod_id),
+            version_id: Some(file_id),
             instance_id,
             source_filename: None,
         },

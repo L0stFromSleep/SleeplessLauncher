@@ -10,7 +10,10 @@ pub(crate) mod client;
 mod models;
 mod provider;
 
-pub use models::{CfAsset, CfAuthor, CfCategory, CfFile, CfMod, CfModLinks};
+pub use models::{
+    CfAsset, CfAuthor, CfCategory, CfFile, CfMod, CfModLinks, CfScreenshot,
+    cf_fingerprint, class_id, project_type_for_class_id,
+};
 pub(crate) use provider::CurseForgeContentProvider;
 
 use crate::State;
@@ -29,22 +32,43 @@ pub(crate) async fn api_key(state: &State) -> crate::Result<String> {
 }
 
 /// `GET /v1/mods/search`, returning `(mods, total_hits)`.
+#[allow(clippy::too_many_arguments)]
 pub async fn search_mods(
     query: &str,
     game_version: Option<&str>,
+    class_id: Option<i64>,
+    sort_field: Option<u32>,
     page: u32,
     page_size: u32,
     state: &State,
 ) -> crate::Result<(Vec<CfMod>, u32)> {
     let api_key = api_key(state).await?;
-    client::search_mods(&api_key, query, game_version, page, page_size, state)
-        .await
+    client::search_mods(
+        &api_key,
+        query,
+        game_version,
+        class_id,
+        sort_field,
+        page,
+        page_size,
+        state,
+    )
+    .await
 }
 
 /// `GET /v1/mods/{modId}`.
 pub async fn get_mod(mod_id: &str, state: &State) -> crate::Result<CfMod> {
     let api_key = api_key(state).await?;
     client::get_mod(&api_key, mod_id, state).await
+}
+
+/// `GET /v1/mods/{modId}/description`.
+pub async fn get_mod_description(
+    mod_id: &str,
+    state: &State,
+) -> crate::Result<String> {
+    let api_key = api_key(state).await?;
+    client::get_mod_description(&api_key, mod_id, state).await
 }
 
 /// `GET /v1/mods/{modId}/files`.
@@ -54,4 +78,10 @@ pub async fn get_mod_files(
 ) -> crate::Result<Vec<CfFile>> {
     let api_key = api_key(state).await?;
     client::get_mod_files(&api_key, mod_id, state).await
+}
+
+/// Looks up a single file by id via CurseForge's batch files endpoint.
+pub async fn get_file(file_id: &str, state: &State) -> crate::Result<CfFile> {
+    let api_key = api_key(state).await?;
+    client::get_file(&api_key, file_id, state).await
 }

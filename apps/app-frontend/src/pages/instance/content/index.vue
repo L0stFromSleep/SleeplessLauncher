@@ -137,6 +137,7 @@ import {
 	get_shared_instance_publish_preview,
 	getInstanceIconUrl,
 	is_file_on_modrinth,
+	reconcile_content,
 	remove_project,
 	set_project_locked,
 	switch_project_version_with_dependencies,
@@ -223,6 +224,12 @@ function contentOwnerLink(owner: ContentOwner): NonNullable<ContentOwner['link']
 	return () => {
 		void openUrl(`https://modrinth.com/organization/${owner.id}`)
 	}
+}
+
+// CurseForge-sourced content items carry CurseForge's numeric mod id as their
+// project.id (there's no Modrinth project with a purely numeric id).
+function isCurseForgeProjectId(id: string): boolean {
+	return /^\d+$/.test(id)
 }
 
 const { formatMessage } = useVIntl()
@@ -1236,6 +1243,19 @@ async function refreshContentState(cacheBehaviour?: CacheBehaviour) {
 	await refreshManagedContentItems(cacheBehaviour)
 }
 
+// Re-checks every content file with no known project against both Modrinth
+// and CurseForge by hash before refreshing the list, so files that were
+// mislabeled as "Uploaded" (e.g. from an imported instance, or a modpack's
+// unrecognized override files) get correctly labeled. Reconciliation itself
+// must never block the refresh -- e.g. a user without a CurseForge API key
+// configured should still get a normal refresh.
+async function handleRefreshContent() {
+	if (instance.value?.id) {
+		await reconcile_content(instance.value.id).catch(handleError)
+	}
+	await refreshContentState('must_revalidate')
+}
+
 watch(
 	() => installRevisionByInstance.value.get(instance.value.id) ?? 0,
 	async (revision) => {
@@ -1613,7 +1633,7 @@ provideContentManager({
 	getDeleteWarning: managedContentPolicy.deleteWarning,
 	getDisableWarning: managedContentPolicy.disableWarning,
 	getDeleteDependencyWarning,
-	refresh: () => initProjects('must_revalidate'),
+	refresh: handleRefreshContent,
 	browse: handleBrowseContent,
 	uploadFiles: handleUploadFiles,
 	hasUpdateSupport: true,
@@ -1641,16 +1661,21 @@ provideContentManager({
 			title: item.embedded_metadata?.name ?? item.file_name.replace('.disabled', ''),
 			icon_url: item.embedded_metadata?.icon_url ?? null,
 		},
-		projectLink: item.project?.id
-			? { path: `/project/${item.project.id}`, query: { i: instancePage.instanceId.value } }
-			: undefined,
+		projectLink: !item.project?.id
+			? undefined
+			: isCurseForgeProjectId(item.project.id)
+				? {
+						path: `/curseforge-project/${item.project.id}`,
+						query: { i: instancePage.instanceId.value },
+					}
+				: { path: `/project/${item.project.id}`, query: { i: instancePage.instanceId.value } },
 		version: item.version ?? {
 			id: item.file_name,
 			version_number: contentVersionLabel(item),
 			file_name: item.file_name,
 		},
 		versionLink:
-			item.project?.id && item.version?.id
+			item.project?.id && item.version?.id && !isCurseForgeProjectId(item.project.id)
 				? {
 						path: `/project/${item.project.id}/version/${item.version.id}`,
 						query: { i: instancePage.instanceId.value },

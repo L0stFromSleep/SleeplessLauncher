@@ -55,7 +55,6 @@ async function install() {
 				:tags="project.display_categories"
 				:all-tags="project.categories"
 				:downloads="project.downloads"
-				:followers="project.follows"
 				:date-updated="project.date_modified"
 				:banner="project.featured_gallery ?? undefined"
 				:color="project.color ?? undefined"

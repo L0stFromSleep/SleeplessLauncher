@@ -135,7 +135,10 @@ pub fn app_db_backup_dir() -> crate::Result<PathBuf> {
         ),
     )?;
 
-    Ok(base.join("Modrinth").join("Backups").join("app-db"))
+    // Deliberately not "Modrinth" -- this app is a separate fork with its
+    // own local data, so its backups must not land in the same folder the
+    // official Modrinth App backs up to.
+    Ok(base.join("SleeplessLauncher").join("Backups").join("app-db"))
 }
 
 async fn has_user_tables(conn: &mut SqliteConnection) -> crate::Result<bool> {

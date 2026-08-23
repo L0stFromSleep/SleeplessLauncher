@@ -13,10 +13,11 @@ use super::shared_instance::{
 };
 use super::{diagnostics, recovery, store};
 use crate::ErrorKind;
+use crate::api::pack::install_curseforge_pack::install_zipped_curseforge_pack_with_reporter;
 use crate::api::pack::install_from::{
-    CreatePackLocation, generate_pack_from_file,
-    generate_pack_from_version_id_with_reporter, get_instance_from_pack,
-    get_local_pack_instance,
+    CreatePackLocation, generate_pack_from_curseforge_file_with_reporter,
+    generate_pack_from_file, generate_pack_from_version_id_with_reporter,
+    get_instance_from_pack, get_local_pack_instance,
 };
 use crate::api::pack::install_mrpack::install_zipped_mrpack_files_with_reporter;
 use crate::event::InstancePayloadType;
@@ -1318,6 +1319,9 @@ pub(super) async fn install_pack(
         )
         .await?;
 
+    let is_curseforge_pack =
+        matches!(location, CreatePackLocation::FromCurseForgeFile { .. });
+
     let create_pack = match location {
         CreatePackLocation::FromVersionId {
             project_id,
@@ -1344,6 +1348,31 @@ pub(super) async fn install_pack(
             )
             .await?
         }
+        CreatePackLocation::FromCurseForgeFile {
+            mod_id,
+            file_id,
+            title,
+            icon_url,
+        } => {
+            reporter
+                .set_context(
+                    InstallErrorContext::new("download modpack file")
+                        .project_id(mod_id.clone())
+                        .version_id(file_id.clone())
+                        .build(),
+                )
+                .await?;
+            generate_pack_from_curseforge_file_with_reporter(
+                mod_id,
+                file_id,
+                title,
+                icon_url,
+                instance_id.clone(),
+                reason,
+                reporter.clone(),
+            )
+            .await?
+        }
         CreatePackLocation::FromFile { path } => {
             reporter
                 .set_context(
@@ -1356,13 +1385,22 @@ pub(super) async fn install_pack(
         }
     };
 
-    Box::pin(install_zipped_mrpack_files_with_reporter(
-        create_pack,
-        false,
-        reason,
-        reporter,
-    ))
-    .await?;
+    if is_curseforge_pack {
+        Box::pin(install_zipped_curseforge_pack_with_reporter(
+            create_pack,
+            reason,
+            reporter,
+        ))
+        .await?;
+    } else {
+        Box::pin(install_zipped_mrpack_files_with_reporter(
+            create_pack,
+            false,
+            reason,
+            reporter,
+        ))
+        .await?;
+    }
 
     Ok(())
 }
@@ -1511,6 +1549,9 @@ fn set_initial_display(job_state: &mut InstallJobState) {
             match location {
                 CreatePackLocation::FromVersionId {
                     title, icon_url, ..
+                }
+                | CreatePackLocation::FromCurseForgeFile {
+                    title, icon_url, ..
                 } => Some((title.clone(), icon_url.clone())),
                 CreatePackLocation::FromFile { path } => {
                     Some((get_local_pack_instance(path).name, None))
@@ -1634,6 +1675,12 @@ pub(super) fn modpack_details(
         CreatePackLocation::FromVersionId {
             project_id,
             version_id,
+            title,
+            ..
+        }
+        | CreatePackLocation::FromCurseForgeFile {
+            mod_id: project_id,
+            file_id: version_id,
             title,
             ..
         } => InstallPhaseDetails::Modpack {

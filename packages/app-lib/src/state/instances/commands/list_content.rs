@@ -5,13 +5,13 @@ use crate::State;
 use crate::pack::install_from::{PackFileHash, PackFormat};
 use crate::state::instances::adapters::sqlite;
 use crate::state::instances::{
-    ContentEntry, ContentSet, ContentSourceKind, Instance,
+    ContentEntry, ContentProvider, ContentSet, ContentSourceKind, Instance,
     InstanceInstallCandidate, InstanceInstallTarget, InstanceLink,
 };
 use crate::state::{
     CacheBehaviour, CachedEntry, CachedFile, ContentFile, ContentItem,
     ContentItemOwner, ContentItemProject, ContentItemVersion, Dependency,
-    LinkedModpackInfo, ModLoader, Organization, OwnerType, Project,
+    License, LinkedModpackInfo, ModLoader, Organization, OwnerType, Project,
     ProjectType, ReleaseChannel, TeamMember, Version, VersionEnvironment,
     VersionV3,
 };
@@ -937,9 +937,69 @@ async fn content_files_to_content_items(
             }
         })
         .collect::<Vec<_>>();
+    enrich_curseforge_content_items(&mut items, files, state).await;
     sort_content_items(&mut items);
 
     Ok(items)
+}
+
+/// Modrinth project/version lookups above always miss for CurseForge-sourced
+/// files (their project/version ids aren't Modrinth ids), leaving `project`
+/// and `version` as `None`. Fill those in from the CurseForge API instead.
+///
+/// One request pair (mod + file) per CurseForge-sourced item, unbatched --
+/// acceptable for the handful of CurseForge mods a typical instance has, but
+/// worth revisiting if that stops being true.
+async fn enrich_curseforge_content_items(
+    items: &mut [ContentItem],
+    files: &[(String, ContentFile)],
+    state: &State,
+) {
+    for (index, (_, file)) in files.iter().enumerate() {
+        let Some(metadata) = &file.metadata else {
+            continue;
+        };
+        if metadata.provider != ContentProvider::CurseForge {
+            continue;
+        }
+
+        let cf_mod =
+            match crate::state::curseforge::get_mod(&metadata.project_id, state)
+                .await
+            {
+                Ok(cf_mod) => cf_mod,
+                Err(_) => continue,
+            };
+
+        items[index].project = Some(ContentItemProject {
+            id: metadata.project_id.clone(),
+            slug: None,
+            title: cf_mod.name,
+            icon_url: cf_mod.logo.map(|logo| logo.url),
+            license: License {
+                id: "unknown".to_string(),
+                name: "Unknown".to_string(),
+                url: cf_mod.links.and_then(|links| links.website_url),
+            },
+            categories: cf_mod
+                .categories
+                .iter()
+                .map(|category| category.name.to_lowercase())
+                .collect(),
+            additional_categories: Vec::new(),
+        });
+
+        let cf_file =
+            crate::state::curseforge::get_file(&metadata.version_id, state)
+                .await
+                .ok();
+        items[index].version = cf_file.map(|file| ContentItemVersion {
+            id: file.id.to_string(),
+            version_number: file.display_name,
+            file_name: file.file_name,
+            date_published: Some(file.file_date.to_rfc3339()),
+        });
+    }
 }
 
 struct ResolvedMetadata {
@@ -1125,10 +1185,14 @@ fn file_metadata_from_entry_or_cache(
     let version_id = entry
         .and_then(|entry| entry.version_id.clone())
         .or_else(|| cached.as_ref().map(|file| file.version_id.clone()))?;
+    let provider = entry
+        .map(|entry| entry.provider)
+        .unwrap_or(ContentProvider::Modrinth);
 
     Some(crate::state::FileMetadata {
         project_id,
         version_id,
+        provider,
     })
 }
 

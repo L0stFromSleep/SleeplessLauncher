@@ -100,6 +100,16 @@ impl TryFrom<InstanceLinkRow> for InstanceLink {
                     "modrinth_version_id",
                 )?,
             }),
+            "curseforge_modpack" => Ok(Self::CurseForgeModpack {
+                mod_id: required(
+                    row.modrinth_project_id,
+                    "modrinth_project_id",
+                )?,
+                file_id: required(
+                    row.modrinth_version_id,
+                    "modrinth_version_id",
+                )?,
+            }),
             "server_project" => Ok(Self::ServerProject {
                 project_id: required(
                     row.server_project_id,
@@ -1453,6 +1463,22 @@ fn instance_link_columns(
             imported_version_number: None,
             imported_filename: None,
         }),
+        InstanceLink::CurseForgeModpack { mod_id, file_id } => {
+            Ok(InstanceLinkColumns {
+                link_kind: "curseforge_modpack",
+                modrinth_project_id: Some(mod_id.clone()),
+                modrinth_version_id: Some(file_id.clone()),
+                server_project_id: None,
+                content_project_id: None,
+                content_version_id: None,
+                hosting_server_id: None,
+                hosting_instance_ids: None,
+                hosting_active_instance_id: None,
+                imported_name: None,
+                imported_version_number: None,
+                imported_filename: None,
+            })
+        }
         InstanceLink::ServerProject { project_id } => Ok(InstanceLinkColumns {
             link_kind: "server_project",
             modrinth_project_id: None,

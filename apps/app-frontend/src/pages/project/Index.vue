@@ -41,7 +41,7 @@
 				:has-versions="versions.length > 0"
 				:link-target="`_blank`"
 				:hide-license="isServerProject"
-				:show-followers="isServerProject"
+				:show-followers="false"
 				class="project-sidebar-section"
 			/>
 		</Teleport>
@@ -65,6 +65,7 @@
 					:project="data"
 					:project-v3="projectV3"
 					:show-status-badge="data.status !== 'approved'"
+					hide-followers
 					@contextmenu.prevent.stop="handleRightClick"
 					@category="(category) => router.push(`${projectSearchUrl}?f=categories:${category}`)"
 				>
@@ -248,7 +249,6 @@ import {
 	DownloadIcon,
 	ExternalIcon,
 	GlobeIcon,
-	HeartIcon,
 	MoreVerticalIcon,
 	PlayIcon,
 	PlusIcon,
@@ -609,14 +609,6 @@ const serverProjectHeaderMoreActions = computed(() => [
 	},
 ])
 const projectHeaderMoreActions = computed(() => [
-	{
-		id: 'follow',
-		label: formatMessage(commonMessages.followButton),
-		icon: HeartIcon,
-		disabled: true,
-		tooltip: formatMessage(messages.comingSoon),
-		action: () => {},
-	},
 	{
 		id: 'save',
 		label: formatMessage(commonMessages.saveButton),

@@ -12,9 +12,12 @@ pub struct CurseForgeSearchResults {
 }
 
 #[tracing::instrument]
+#[allow(clippy::too_many_arguments)]
 pub async fn search(
     query: String,
     game_version: Option<String>,
+    class_id: Option<i64>,
+    sort_field: Option<u32>,
     page: u32,
     page_size: u32,
 ) -> crate::Result<CurseForgeSearchResults> {
@@ -22,6 +25,8 @@ pub async fn search(
     let (hits, total_hits) = crate::state::curseforge::search_mods(
         &query,
         game_version.as_deref(),
+        class_id,
+        sort_field,
         page,
         page_size,
         &state,
@@ -35,6 +40,12 @@ pub async fn search(
 pub async fn get_mod(mod_id: String) -> crate::Result<CfMod> {
     let state = crate::State::get().await?;
     crate::state::curseforge::get_mod(&mod_id, &state).await
+}
+
+#[tracing::instrument]
+pub async fn get_mod_description(mod_id: String) -> crate::Result<String> {
+    let state = crate::State::get().await?;
+    crate::state::curseforge::get_mod_description(&mod_id, &state).await
 }
 
 #[tracing::instrument]

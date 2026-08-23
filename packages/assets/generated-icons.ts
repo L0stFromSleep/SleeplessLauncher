@@ -274,6 +274,8 @@ import _SunriseIcon from './icons/sunrise.svg?component'
 import _SupportChatIcon from './icons/support-chat.svg?component'
 import _TagIcon from './icons/tag.svg?component'
 import _TagsIcon from './icons/tags.svg?component'
+import _TagCategoryCurseforgeIcon from './icons/tags/categories/curseforge.svg?component'
+import _TagCategoryModrinthIcon from './icons/tags/categories/modrinth.svg?component'
 import _TagCategoryAdventureIcon from './icons/tags/categories/adventure.svg?component'
 import _TagCategoryAtmosphereIcon from './icons/tags/categories/atmosphere.svg?component'
 import _TagCategoryAudioIcon from './icons/tags/categories/audio.svg?component'
@@ -718,6 +720,8 @@ export const SunriseIcon = _SunriseIcon
 export const SupportChatIcon = _SupportChatIcon
 export const TagIcon = _TagIcon
 export const TagsIcon = _TagsIcon
+export const TagCategoryCurseforgeIcon = _TagCategoryCurseforgeIcon
+export const TagCategoryModrinthIcon = _TagCategoryModrinthIcon
 export const TagCategoryAdventureIcon = _TagCategoryAdventureIcon
 export const TagCategoryAtmosphereIcon = _TagCategoryAtmosphereIcon
 export const TagCategoryAudioIcon = _TagCategoryAudioIcon
@@ -999,6 +1003,8 @@ export const categoryIconMap: Record<string, IconComponent> = {
 }
 
 export const loaderIconMap: Record<string, IconComponent> = {
+	curseforge: TagCategoryCurseforgeIcon,
+	modrinth: TagCategoryModrinthIcon,
 	babric: TagLoaderBabricIcon,
 	'bta-babric': TagLoaderBtaBabricIcon,
 	bukkit: TagLoaderBukkitIcon,

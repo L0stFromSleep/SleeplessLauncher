@@ -334,5 +334,18 @@ async fn import_mmc_unmanaged(
         details,
     )
     .await?;
+
+    // An imported instance's files have no known project/version at all --
+    // try to identify them against both providers now so they don't all
+    // show as "Uploaded". Must never fail the import itself.
+    if let Err(err) =
+        crate::state::reconcile_unresolved_content(instance_id, &state).await
+    {
+        tracing::warn!(
+            "Failed to reconcile unresolved content for instance {instance_id} \
+             after MultiMC instance import: {err}"
+        );
+    }
+
     Ok(())
 }

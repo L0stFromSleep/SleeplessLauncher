@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import { getTagMessage, sortTagsForDisplay } from '../../../utils'
+import { getTagMessage, SOURCE_TAGS, sortTagsForDisplay } from '../../../utils'
 import { TagTagItem } from '../../base'
 import TagsOverflow from '../TagsOverflow.vue'
 
+// "modrinth"/"curseforge" are modeled as loader tags only for their
+// formatted name/icon (see SOURCE_TAGS) -- excludeLoaders (forced on for
+// resource packs/data packs, since those tabs don't want real loader tags
+// like "vanilla"/"canvas" cluttering cards) must not sweep the source tag
+// into the overflow "+N" bucket along with them.
 function isLoader(tag: string) {
-	return getTagMessage(tag, 'loader') !== undefined
+	return !SOURCE_TAGS.has(tag) && getTagMessage(tag, 'loader') !== undefined
 }
 
 function uniqueSorted(tags?: string[]) {

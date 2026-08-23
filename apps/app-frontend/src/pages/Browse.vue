@@ -19,6 +19,7 @@ import {
 	defineMessages,
 	formatProjectTypeSentence,
 	getLatestMatchingInstallVersion,
+	getLoaderMessage,
 	getSelectedInstallPreferences,
 	getTargetInstallPreferences,
 	injectNotificationManager,
@@ -39,13 +40,17 @@ import type { LocationQuery } from 'vue-router'
 import { useRoute, useRouter } from 'vue-router'
 
 import ContextMenu from '@/components/ui/context-menu/index.vue'
-import CurseForgeProjectCard from '@/components/ui/CurseForgeProjectCard.vue'
 import { useAppServerBrowse } from '@/composables/browse/use-app-server-browse'
 import { useAppEvent } from '@/composables/use-app-event'
 import { useAppSettings } from '@/composables/use-app-settings.ts'
 import { get_project, get_search_results_v3, get_version_many } from '@/helpers/cache.js'
 import * as curseforge from '@/helpers/curseforge.ts'
+import { classIdForProjectType } from '@/helpers/curseforge.ts'
 import type { CfMod } from '@/helpers/curseforge.ts'
+import {
+	install_create_modpack_instance,
+	installJobInstanceId,
+} from '@/helpers/install'
 import {
 	get_installed_project_ids as getInstalledProjectIds,
 	getInstanceIconUrl,
@@ -884,10 +889,156 @@ async function chooseFilterMatchingInstallVersion(
 	return { versionId: plan.versionId }
 }
 
+const curseforgeInstalling = ref<Set<string>>(new Set())
+const curseforgeInstalled = ref<Set<string>>(new Set())
+
+// CurseForge modpacks create a whole new instance rather than installing
+// content into an existing one, so they go through install_create_modpack_instance
+// directly instead of the shared Modrinth installVersion()/content-install.ts
+// flow (which resolves projects via get_project(), a Modrinth-only cache
+// lookup that doesn't know about "curseforge:"-prefixed project ids).
+function getCurseForgeModpackCardActions(
+	result: Labrinth.Search.v3.ResultSearchProject & CurseForgeTaggedHit,
+): CardAction[] {
+	const mod = result.__curseforge
+
+	if (mod.allowModDistribution === false) {
+		return [
+			{
+				key: 'install',
+				label: 'Not available via 3rd party',
+				icon: PlusIcon,
+				disabled: true,
+				color: 'red',
+				type: 'outlined',
+				onClick: async () => {},
+			},
+		]
+	}
+
+	const isInstalling = curseforgeInstalling.value.has(result.project_id)
+
+	return [
+		{
+			key: 'install',
+			label: formatMessage(
+				isInstalling ? commonMessages.installingLabel : commonMessages.installButton,
+			),
+			icon: isInstalling ? SpinnerIcon : PlusIcon,
+			iconClass: isInstalling ? 'animate-spin' : undefined,
+			disabled: isInstalling,
+			color: 'brand',
+			type: 'outlined',
+			onClick: async () => {
+				const file = mod.latestFiles[0]
+				if (!file) {
+					handleError(new Error(`No files available for "${mod.name}" on CurseForge`))
+					return
+				}
+
+				curseforgeInstalling.value = new Set([...curseforgeInstalling.value, result.project_id])
+				try {
+					const job = await install_create_modpack_instance({
+						type: 'fromCurseForgeFile',
+						mod_id: mod.id.toString(),
+						file_id: file.id.toString(),
+						title: mod.name,
+						icon_url: mod.logo?.url ?? null,
+					})
+					const newInstanceId = installJobInstanceId(job)
+					if (newInstanceId) {
+						router.push(`/instance/${newInstanceId}`)
+					}
+				} catch (err) {
+					handleError(err as Error)
+				} finally {
+					const next = new Set(curseforgeInstalling.value)
+					next.delete(result.project_id)
+					curseforgeInstalling.value = next
+				}
+			},
+		},
+	]
+}
+
+function getCurseForgeCardActions(
+	result: Labrinth.Search.v3.ResultSearchProject & CurseForgeTaggedHit,
+	currentProjectType: string,
+): CardAction[] {
+	const mod = result.__curseforge
+	const canInstall = !!instance.value
+
+	if (mod.allowModDistribution === false) {
+		return [
+			{
+				key: 'install',
+				label: 'Not available via 3rd party',
+				icon: PlusIcon,
+				disabled: true,
+				color: 'red',
+				type: 'outlined',
+				onClick: async () => {},
+			},
+		]
+	}
+
+	const isInstalled = curseforgeInstalled.value.has(result.project_id)
+	const isInstalling = curseforgeInstalling.value.has(result.project_id)
+
+	return [
+		{
+			key: 'install',
+			label: formatMessage(
+				isInstalled
+					? commonMessages.installedLabel
+					: canInstall
+						? commonMessages.installButton
+						: messages.addToAnInstance,
+			),
+			icon: isInstalling ? SpinnerIcon : isInstalled ? CheckIcon : PlusIcon,
+			iconClass: isInstalling ? 'animate-spin' : undefined,
+			disabled: isInstalled || isInstalling || !canInstall,
+			color: 'brand',
+			type: 'outlined',
+			onClick: async () => {
+				if (!instance.value) return
+				const file = mod.latestFiles[0]
+				if (!file) {
+					handleError(new Error(`No files available for "${mod.name}" on CurseForge`))
+					return
+				}
+
+				curseforgeInstalling.value = new Set([...curseforgeInstalling.value, result.project_id])
+				try {
+					await install_curseforge_project_with_dependencies(instance.value.id, {
+						mod_id: mod.id.toString(),
+						file_id: file.id.toString(),
+						content_type: currentProjectType as Labrinth.Content.v3.ContentType,
+					})
+					curseforgeInstalled.value = new Set([...curseforgeInstalled.value, result.project_id])
+					onSearchResultInstalled(result.project_id)
+				} catch (err) {
+					handleError(err as Error)
+				} finally {
+					const next = new Set(curseforgeInstalling.value)
+					next.delete(result.project_id)
+					curseforgeInstalling.value = next
+				}
+			},
+		},
+	]
+}
+
 function getCardActions(
 	result: Labrinth.Search.v3.ResultSearchProject,
 	currentProjectType: string,
 ): CardAction[] {
+	if (isCurseForgeHit(result)) {
+		return currentProjectType === 'modpack'
+			? getCurseForgeModpackCardActions(result)
+			: getCurseForgeCardActions(result, currentProjectType)
+	}
+
 	if (currentProjectType === 'server') {
 		return getServerCardActions(result)
 	}
@@ -1075,20 +1226,233 @@ function onSearchResultsInstalled(ids: string[]) {
 	newlyInstalled.value = Array.from(new Set([...newlyInstalled.value, ...ids]))
 }
 
+interface CurseForgeTaggedHit {
+	__curseforge: CfMod
+}
+
+function isCurseForgeHit(
+	result: Labrinth.Search.v3.ResultSearchProject,
+): result is Labrinth.Search.v3.ResultSearchProject & CurseForgeTaggedHit {
+	return !!result.project_id?.startsWith('curseforge:')
+}
+
+// CurseForge's gameVersions array mixes Minecraft version numbers, loader
+// names, environment tags, and other version-ish labels together (e.g.
+// ["1.20.1", "Fabric", "Client", "Beta 1.7.3", "Java 17"]) with no way to
+// tell them apart by shape alone -- "Beta 1.7.3" doesn't start with a digit
+// either. Only treat an entry as a loader if it's a name Modrinth's own
+// loader vocabulary recognizes, rather than guessing from what it *isn't*.
+function cfLoaders(mod: CfMod): string[] {
+	const loaders = new Set<string>()
+	for (const file of mod.latestFiles) {
+		for (const gameVersion of file.gameVersions) {
+			const normalized = gameVersion.toLowerCase()
+			if (getLoaderMessage(normalized)) {
+				loaders.add(normalized)
+			}
+		}
+	}
+	return [...loaders]
+}
+
+// Mirrors Modrinth's project_loader_fields.environment, derived from
+// CurseForge's "Client"/"Server" gameVersions tags, so CurseForge cards get
+// the same environment badge (rendered before the tag row) as Modrinth ones.
+function cfEnvironment(mod: CfMod): Labrinth.Projects.v3.Environment | undefined {
+	let hasClient = false
+	let hasServer = false
+	for (const file of mod.latestFiles) {
+		for (const gameVersion of file.gameVersions) {
+			const normalized = gameVersion.toLowerCase()
+			if (normalized === 'client') hasClient = true
+			if (normalized === 'server') hasServer = true
+		}
+	}
+	if (hasClient && hasServer) return 'client_and_server'
+	if (hasClient) return 'client_only'
+	if (hasServer) return 'server_only'
+	return undefined
+}
+
+function cfModToSearchHit(
+	mod: CfMod,
+	projectType: string,
+): Labrinth.Search.v3.ResultSearchProject & CurseForgeTaggedHit {
+	// Only the main category is shown (no sub-categories), matching the
+	// Modrinth-side mapping below: source, [environment,] main category,
+	// loaders -- not a full category list.
+	const mainCategory = mod.categories[0]?.name.toLowerCase()
+	const categories = ['curseforge', ...(mainCategory ? [mainCategory] : [])]
+	// The search request itself was already scoped to this project type's
+	// classId, so every hit in the response is one -- no need to trust
+	// `mod.classId` alone (CurseForge sometimes omits it on search results).
+	const projectTypes = [projectType]
+
+	return {
+		project_id: `curseforge:${mod.id}`,
+		project_types: projectTypes,
+		all_project_types: projectTypes,
+		slug: null,
+		author: mod.authors[0]?.name ?? 'CurseForge',
+		author_id: null,
+		organization: null,
+		organization_id: null,
+		name: mod.name,
+		summary: mod.summary,
+		categories,
+		display_categories: categories,
+		downloads: mod.downloadCount ?? 0,
+		// The follower system is being removed from this app entirely
+		// (CurseForge has no equivalent concept anyway); the shared
+		// ProjectCardStats component only renders this stat when defined.
+		follows: undefined as unknown as number,
+		icon_url: mod.logo?.url ?? null,
+		date_created: mod.dateCreated ?? new Date(0).toISOString(),
+		date_modified: mod.dateModified ?? new Date(0).toISOString(),
+		license: 'unknown',
+		gallery: [],
+		featured_gallery: null,
+		color: null,
+		project_loader_fields: (() => {
+			const environment = cfEnvironment(mod)
+			return environment ? { environment: [environment] } : undefined
+		})(),
+		loaders: cfLoaders(mod),
+		disclosure_types: [],
+		__curseforge: mod,
+	}
+}
+
+function selectedProviders(): Set<'modrinth' | 'curseforge'> {
+	const sourceFilters = searchState.currentFilters.value.filter(
+		(f) => f.type === 'source' && !f.negative,
+	)
+	if (sourceFilters.length === 0) return new Set(['modrinth', 'curseforge'])
+	return new Set(sourceFilters.map((f) => f.option as 'modrinth' | 'curseforge'))
+}
+
+// Modrinth and CurseForge each return their own hits pre-sorted server-side
+// (by whichever sort each provider's API applies), so merging them requires
+// re-sorting the combined list client-side by whatever field the user's
+// chosen sort type corresponds to -- otherwise CurseForge results just end
+// up appended after every Modrinth result regardless of the selected sort.
+// A missing/invalid value must always sort to the bottom of a descending
+// sort, never the top -- a plain `?? 0` (or an unguarded Date.parse, which
+// returns NaN for an empty string) doesn't guarantee that: NaN comparator
+// results are treated as "equal" by Array.prototype.sort, which can leave
+// bad data anywhere, including first.
+function safeSortValue(n: number): number {
+	return Number.isFinite(n) ? n : -Infinity
+}
+
+function compareBySelectedSort(
+	a: Labrinth.Search.v3.ResultSearchProject,
+	b: Labrinth.Search.v3.ResultSearchProject,
+): number {
+	const sortName = searchState.effectiveCurrentSortType.value.name
+
+	switch (sortName) {
+		case 'downloads':
+			return safeSortValue(b.downloads ?? NaN) - safeSortValue(a.downloads ?? NaN)
+		case 'newest':
+			return (
+				safeSortValue(Date.parse(b.date_created ?? '')) -
+				safeSortValue(Date.parse(a.date_created ?? ''))
+			)
+		case 'updated':
+			return (
+				safeSortValue(Date.parse(b.date_modified ?? '')) -
+				safeSortValue(Date.parse(a.date_modified ?? ''))
+			)
+		case 'relevance':
+		default:
+			// Neither provider's API exposes a directly comparable relevance
+			// score across providers, so fall back to downloads as the
+			// closest useful proxy for a merged "relevance" ordering.
+			return safeSortValue(b.downloads ?? NaN) - safeSortValue(a.downloads ?? NaN)
+	}
+}
+
+// Modpacks install a whole new instance rather than content into an existing
+// one, but they're still discovered through this same search path -- only
+// their install action (getCurseForgeModpackCardActions) differs.
+const CURSEFORGE_CONTENT_SEARCH_PROJECT_TYPES = [
+	'mod',
+	'resourcepack',
+	'datapack',
+	'shader',
+	'modpack',
+]
+
+async function searchCurseForgeHits(
+	requestParams: string,
+): Promise<(Labrinth.Search.v3.ResultSearchProject & CurseForgeTaggedHit)[]> {
+	// Only on the first page, since CurseForge and Modrinth have independent
+	// pagination that isn't merged here.
+	if (!CURSEFORGE_CONTENT_SEARCH_PROJECT_TYPES.includes(projectType.value)) return []
+	if (!selectedProviders().has('curseforge')) return []
+	const classId = classIdForProjectType(projectType.value)
+	if (classId === null) return []
+
+	const params = new URLSearchParams(
+		requestParams.startsWith('?') ? requestParams.slice(1) : requestParams,
+	)
+	const queryText = params.get('query') ?? ''
+	const offsetParam = params.get('offset')
+	if (offsetParam && offsetParam !== '0') return []
+
+	const sortName = searchState.effectiveCurrentSortType.value.name
+	const sortField =
+		sortName === 'downloads'
+			? curseforge.CF_SORT_FIELD.totalDownloads
+			: sortName === 'newest'
+				? curseforge.CF_SORT_FIELD.releasedDate
+				: sortName === 'updated'
+					? curseforge.CF_SORT_FIELD.lastUpdated
+					: // 'relevance': CurseForge ranks by textual match relevance itself
+						// when no sortField is given and there's an actual search term --
+						// passing a field like Popularity would override that with
+						// something that isn't relevance at all. Only fall back to
+						// Popularity for a pure empty-query browse, where "relevance"
+						// doesn't mean anything to rank by.
+						queryText.trim()
+						? null
+						: curseforge.CF_SORT_FIELD.popularity
+
+	try {
+		const results = await curseforge.search(
+			queryText,
+			instance.value?.game_version ?? null,
+			classId,
+			sortField,
+			0,
+			20,
+		)
+		return results.hits.map((mod) => cfModToSearchHit(mod, projectType.value))
+	} catch (err) {
+		debugLog('curseforge search failed', err)
+		handleError(err as Error)
+		return []
+	}
+}
+
 async function search(requestParams: string) {
 	debugLog('searching v3', requestParams)
 	const isServer = projectType.value === 'server'
 
-	const rawResults = await queryClient.fetchQuery({
-		queryKey: ['search', 'v3', requestParams],
-		queryFn: () =>
-			get_search_results_v3(requestParams, 'must_revalidate') as Promise<{
-				result: Labrinth.Search.v3.SearchResults & {
-					hits: (Labrinth.Search.v3.ResultSearchProject & { installed?: boolean })[]
-				}
-			} | null>,
-		staleTime: 30_000,
-	})
+	const [rawResults, curseforgeHits] = await Promise.all([
+		queryClient.fetchQuery({
+			queryKey: ['search', 'v3', requestParams],
+			queryFn: () =>
+				get_search_results_v3(requestParams, 'must_revalidate') as Promise<{
+					result: Labrinth.Search.v3.SearchResults & {
+						hits: (Labrinth.Search.v3.ResultSearchProject & { installed?: boolean })[]
+					}
+				} | null>,
+			staleTime: 30_000,
+		}),
+		isServer ? Promise.resolve([]) : searchCurseForgeHits(requestParams),
+	])
 
 	if (!rawResults) {
 		return {
@@ -1121,6 +1485,21 @@ async function search(requestParams: string) {
 	const hits = rawResults.result.hits.map((hit) => {
 		const mapped: Labrinth.Search.v3.ResultSearchProject & { installed?: boolean } = {
 			...hit,
+			// The Rust side passes v3 search hits through as untyped JSON
+			// (unvalidated against this TS type), so guarantee these are
+			// real numbers before they ever reach the cross-provider sort --
+			// an undefined/NaN downloads value must never be able to make a
+			// popular Modrinth mod lose to a barely-downloaded CurseForge one.
+			downloads: typeof hit.downloads === 'number' ? hit.downloads : 0,
+			// The follower system is being removed from this app entirely --
+			// the shared ProjectCardStats component only renders this stat
+			// when defined.
+			follows: undefined as unknown as number,
+			// Only the main category is shown (no sub-categories), matching
+			// the CurseForge-side mapping: source, [environment,] main
+			// category, loaders -- not a full category list.
+			categories: ['modrinth', ...(hit.display_categories ?? []).slice(0, 1)],
+			display_categories: ['modrinth', ...(hit.display_categories ?? []).slice(0, 1)],
 		}
 
 		if (instance.value || isServerContext.value || projectType.value === 'modpack') {
@@ -1134,10 +1513,17 @@ async function search(requestParams: string) {
 		return mapped
 	})
 
+	const combinedHits = [...hits, ...curseforgeHits]
+		.filter((hit) => {
+			const provider = isCurseForgeHit(hit) ? 'curseforge' : 'modrinth'
+			return selectedProviders().has(provider)
+		})
+		.sort(compareBySelectedSort)
+
 	return {
-		projectHits: hits,
+		projectHits: combinedHits,
 		serverHits: [],
-		total_hits: rawResults.result.total_hits,
+		total_hits: rawResults.result.total_hits + curseforgeHits.length,
 		per_page: rawResults.result.hits_per_page,
 	}
 }
@@ -1164,6 +1550,19 @@ const searchState = useBrowseSearch({
 		shi: serverHideInstalled.value ? 'true' : undefined,
 	}),
 })
+
+// The 'source' filter (Modrinth/CurseForge) never touches the real Modrinth
+// search query string by design -- it's inert to Labrinth's backend, only
+// read client-side in search() above. That means the shared search
+// composable's requestParams-based refetch watcher never fires for it, so
+// force a refresh here whenever the selected sources change.
+watch(
+	() => searchState.currentFilters.value.filter((f) => f.type === 'source'),
+	() => {
+		void searchState.refreshSearch()
+	},
+	{ deep: true },
+)
 
 watch(
 	[
@@ -1264,10 +1663,18 @@ provideBrowseManager({
 	...searchState,
 	advancedFiltersCollapsed,
 	dismissedPhotosensitivityFilterWarning,
-	getProjectLink: (result: Labrinth.Search.v3.ResultSearchProject) => ({
-		path: `/project/${result.project_id ?? result.slug}`,
-		query: getProjectBrowseQuery(),
-	}),
+	getProjectLink: (result: Labrinth.Search.v3.ResultSearchProject) => {
+		if (isCurseForgeHit(result)) {
+			return {
+				path: `/curseforge-project/${result.__curseforge.id}`,
+				query: getProjectBrowseQuery(),
+			}
+		}
+		return {
+			path: `/project/${result.project_id ?? result.slug}`,
+			query: getProjectBrowseQuery(),
+		}
+	},
 	getServerProjectLink: (result: Labrinth.Search.v3.ResultSearchProject) => ({
 		path: `/project/${result.slug ?? result.project_id}`,
 		query: getProjectBrowseQuery(),
@@ -1330,104 +1737,10 @@ provideBrowseManager({
 	lockedFilterMessages,
 })
 
-// --- CurseForge (app-only, kept separate from the shared Modrinth search/grid above) ---
-const showCurseForge = ref(false)
-const curseforgeQuery = ref('')
-const curseforgeResults = ref<CfMod[]>([])
-const curseforgeTotalHits = ref(0)
-const curseforgeSearching = ref(false)
-const curseforgeInstalling = ref<Set<number>>(new Set())
-const curseforgeInstalled = ref<Set<number>>(new Set())
-let curseforgeSearchToken = 0
-
-const canInstallCurseForge = computed(() => !!instance.value)
-
-async function searchCurseForge() {
-	const token = ++curseforgeSearchToken
-	curseforgeSearching.value = true
-	try {
-		const results = await curseforge.search(
-			curseforgeQuery.value,
-			instance.value?.game_version ?? null,
-			0,
-			20,
-		)
-		if (token !== curseforgeSearchToken) return
-		curseforgeResults.value = results.hits
-		curseforgeTotalHits.value = results.total_hits
-	} catch (err) {
-		if (token === curseforgeSearchToken) handleError(err)
-	} finally {
-		if (token === curseforgeSearchToken) curseforgeSearching.value = false
-	}
-}
-
-let curseforgeSearchDebounce: ReturnType<typeof setTimeout> | undefined
-watch([showCurseForge, curseforgeQuery], ([shown]) => {
-	if (!shown) return
-	clearTimeout(curseforgeSearchDebounce)
-	curseforgeSearchDebounce = setTimeout(searchCurseForge, 300)
-})
-
-async function installCurseForgeMod(mod: CfMod) {
-	if (!instance.value) return
-	const file = mod.latestFiles[0]
-	if (!file) {
-		handleError(new Error(`No files available for "${mod.name}" on CurseForge`))
-		return
-	}
-
-	curseforgeInstalling.value = new Set([...curseforgeInstalling.value, mod.id])
-	try {
-		await install_curseforge_project_with_dependencies(instance.value.id, {
-			mod_id: mod.id.toString(),
-			file_id: file.id.toString(),
-			content_type: 'mod',
-		})
-		curseforgeInstalled.value = new Set([...curseforgeInstalled.value, mod.id])
-	} catch (err) {
-		handleError(err)
-	} finally {
-		const next = new Set(curseforgeInstalling.value)
-		next.delete(mod.id)
-		curseforgeInstalling.value = next
-	}
-}
 </script>
 
 <template>
 	<div class="flex flex-col gap-3 p-6">
-		<div class="flex flex-col gap-3 bg-bg-raised rounded-xl p-4">
-			<button
-				class="flex items-center gap-2 bg-transparent border-none cursor-pointer p-0 m-0 text-contrast font-bold text-lg"
-				@click="showCurseForge = !showCurseForge"
-			>
-				{{ showCurseForge ? '▾' : '▸' }} CurseForge
-			</button>
-			<template v-if="showCurseForge">
-				<input
-					v-model="curseforgeQuery"
-					type="text"
-					placeholder="Search CurseForge..."
-					class="bg-bg-input border-solid border-[1px] border-button-border rounded-lg px-3 py-2 text-primary"
-				/>
-				<p v-if="!canInstallCurseForge" class="m-0 text-sm text-secondary">
-					Open Explore from an instance to install CurseForge content.
-				</p>
-				<div v-if="curseforgeSearching" class="text-secondary">Searching...</div>
-				<div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-					<CurseForgeProjectCard
-						v-for="mod in curseforgeResults"
-						:key="mod.id"
-						:mod="mod"
-						:installing="curseforgeInstalling.has(mod.id)"
-						:installed="curseforgeInstalled.has(mod.id)"
-						:can-install="canInstallCurseForge"
-						@install="installCurseForgeMod(mod)"
-					/>
-				</div>
-			</template>
-		</div>
 		<BrowsePageLayout>
 			<template #after>
 				<ContextMenu ref="contextMenuRef" @option-clicked="handleOptionsClick">

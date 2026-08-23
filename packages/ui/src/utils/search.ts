@@ -53,6 +53,7 @@ export type FilterOption = BaseOption &
 	(
 		| { method: 'or' | 'and'; value: string }
 		| { method: 'environment'; environment: 'client' | 'server' }
+		| { method: 'source'; source: 'modrinth' | 'curseforge' }
 	)
 
 export function flattenFilterOptions(options: readonly FilterOption[]): FilterOption[] {
@@ -378,7 +379,6 @@ export function useSearch(
 	const sortTypes: readonly SortType[] = readonly([
 		{ display: 'Relevance', name: 'relevance' },
 		{ display: 'Downloads', name: 'downloads' },
-		{ display: 'Followers', name: 'follows' },
 		{ display: 'Date published', name: 'newest' },
 		{ display: 'Date updated', name: 'updated' },
 	])
@@ -443,6 +443,37 @@ export function useSearch(
 		}
 
 		const filterTypes: FilterType[] = [
+			{
+				id: 'source',
+				formatted_name: formatMessage(
+					defineMessage({
+						id: 'search.filter_type.source',
+						defaultMessage: 'Source',
+					}),
+				),
+				supported_project_types: ['mod', 'plugin', 'datapack', 'resourcepack', 'shader'],
+				display: 'all',
+				query_param: 'src',
+				supports: ['include'],
+				searchable: false,
+				ordering: 100,
+				options: [
+					{
+						id: 'modrinth',
+						formatted_name: formatLoader(formatMessage, 'modrinth'),
+						icon: getLoaderIcon('modrinth'),
+						method: 'source',
+						source: 'modrinth',
+					},
+					{
+						id: 'curseforge',
+						formatted_name: formatLoader(formatMessage, 'curseforge'),
+						icon: getLoaderIcon('curseforge'),
+						method: 'source',
+						source: 'curseforge',
+					},
+				],
+			},
 			...Object.values(categoryFilters),
 			{
 				id: 'compatible_dependency_project_ids',
