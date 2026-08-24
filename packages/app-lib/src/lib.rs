@@ -31,11 +31,17 @@ pub use state::State;
 pub use util::fetch::DownloadReason;
 
 pub fn launcher_user_agent() -> String {
+    // Modrinth's own API docs require a uniquely-identifying User-Agent
+    // per client (see docs.modrinth.com/api's "best practice" format:
+    // `github_username/project_name/version (contact)`) -- this used to
+    // literally send "modrinth/theseus" with Modrinth's own support email,
+    // which both fails that requirement and misrepresents every request
+    // this fork makes as coming from Modrinth's own official app.
     const LAUNCHER_BASE_USER_AGENT: &str =
-        concat!("modrinth/theseus/", env!("CARGO_PKG_VERSION"),);
+        concat!("L0stFromSleep/SleeplessLauncher/", env!("CARGO_PKG_VERSION"),);
 
     format!(
-        "{} ({}; support@modrinth.com)",
+        "{} ({}; https://github.com/L0stFromSleep/SleeplessLauncher)",
         LAUNCHER_BASE_USER_AGENT,
         std::env::consts::OS
     )

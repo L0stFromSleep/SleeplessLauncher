@@ -14,6 +14,9 @@
   "app.action-bar.hide-more-running-instances": {
     "message": "Hide more running instances"
   },
+  "app.action-bar.hide-more-running-servers": {
+    "message": "Hide more running servers"
+  },
   "app.action-bar.install.copied-details": {
     "message": "Copied"
   },
@@ -101,14 +104,23 @@
   "app.action-bar.make-primary-instance": {
     "message": "Make primary instance"
   },
+  "app.action-bar.make-primary-server": {
+    "message": "Make primary server"
+  },
   "app.action-bar.no-instances-running": {
     "message": "No instances running"
+  },
+  "app.action-bar.no-servers-running": {
+    "message": "No servers running"
   },
   "app.action-bar.offline": {
     "message": "Offline"
   },
   "app.action-bar.primary-instance": {
     "message": "Primary instance"
+  },
+  "app.action-bar.primary-server": {
+    "message": "Primary server"
   },
   "app.action-bar.reload-to-update": {
     "message": "Reload to update"
@@ -119,8 +131,14 @@
   "app.action-bar.show-more-running-instances": {
     "message": "Show more running instances"
   },
+  "app.action-bar.show-more-running-servers": {
+    "message": "Show more running servers"
+  },
   "app.action-bar.stop-instance": {
     "message": "Stop instance"
+  },
+  "app.action-bar.stop-server": {
+    "message": "Stop server"
   },
   "app.action-bar.update": {
     "message": "Update"
@@ -128,11 +146,17 @@
   "app.action-bar.view-active-downloads": {
     "message": "View active downloads"
   },
+  "app.action-bar.view-console": {
+    "message": "View console"
+  },
   "app.action-bar.view-instance": {
     "message": "View instance"
   },
   "app.action-bar.view-logs": {
     "message": "View logs"
+  },
+  "app.action-bar.view-server": {
+    "message": "View server"
   },
   "app.ads-consent.accept": {
     "message": "Accept all"
@@ -174,7 +198,7 @@
     "message": "Jump into worlds or instances"
   },
   "app.appearance-settings.minimize-launcher.description": {
-    "message": "Minimize Modrinth App when Minecraft starts."
+    "message": "Minimize Sleepless Launcher when Minecraft starts."
   },
   "app.appearance-settings.minimize-launcher.title": {
     "message": "Minimize app"
@@ -287,6 +311,27 @@
   "app.content-install.no-compatible-versions": {
     "message": "No available versions match {compatibilityLabel}. Select a version to install anyway. Dependencies will not be installed automatically."
   },
+  "app.curseforge-project.by-authors": {
+    "message": "By {authors}"
+  },
+  "app.curseforge-project.downloads-count": {
+    "message": "{count} downloads"
+  },
+  "app.curseforge-project.gallery-heading": {
+    "message": "Gallery"
+  },
+  "app.curseforge-project.load-error": {
+    "message": "CurseForge project data could not be loaded."
+  },
+  "app.curseforge-project.not-available": {
+    "message": "Not available via 3rd party"
+  },
+  "app.curseforge-project.open-on-curseforge": {
+    "message": "Open on CurseForge"
+  },
+  "app.curseforge-project.select-instance": {
+    "message": "Open from an instance to install"
+  },
   "app.export-modal.description-placeholder": {
     "message": "Enter modpack description..."
   },
@@ -338,17 +383,140 @@
   "app.home.jump-back-in.view-instance": {
     "message": "View instance"
   },
+  "app.host.add-server": {
+    "message": "Add server"
+  },
+  "app.host.back": {
+    "message": "Back"
+  },
+  "app.host.create": {
+    "message": "Create"
+  },
+  "app.host.delete": {
+    "message": "Delete"
+  },
+  "app.host.detail.accept-eula": {
+    "message": "I accept the Minecraft EULA"
+  },
+  "app.host.detail.browse-content": {
+    "message": "Browse content"
+  },
+  "app.host.detail.change-icon": {
+    "message": "Change icon"
+  },
+  "app.host.detail.command-placeholder": {
+    "message": "Type a server command (e.g. /op Notch)…"
+  },
+  "app.host.detail.delete-server": {
+    "message": "Delete server"
+  },
+  "app.host.detail.eula-notice": {
+    "message": "Starting this server requires accepting the Minecraft End User License Agreement (EULA) on its behalf: https://www.minecraft.net/eula"
+  },
+  "app.host.detail.extra-args-label": {
+    "message": "Extra JVM arguments"
+  },
+  "app.host.detail.memory-label": {
+    "message": "Max memory (MB)"
+  },
+  "app.host.detail.no-content": {
+    "message": "No content installed"
+  },
+  "app.host.detail.port-label": {
+    "message": "Port"
+  },
+  "app.host.detail.remove-icon": {
+    "message": "Remove icon"
+  },
+  "app.host.detail.running": {
+    "message": "Running"
+  },
+  "app.host.detail.save-as": {
+    "message": "Save as…"
+  },
+  "app.host.detail.save-settings": {
+    "message": "Save settings"
+  },
+  "app.host.detail.send-command": {
+    "message": "Send"
+  },
+  "app.host.detail.settings-action": {
+    "message": "Settings"
+  },
+  "app.host.detail.settings-modal-title": {
+    "message": "Server settings"
+  },
+  "app.host.detail.start": {
+    "message": "Start"
+  },
+  "app.host.detail.stop": {
+    "message": "Stop"
+  },
+  "app.host.detail.stopped": {
+    "message": "Stopped"
+  },
+  "app.host.detail.tab-console": {
+    "message": "Console"
+  },
+  "app.host.detail.tab-content": {
+    "message": "Content"
+  },
+  "app.host.detail.tab-files": {
+    "message": "Files"
+  },
+  "app.host.detail.upload-files": {
+    "message": "Upload files"
+  },
+  "app.host.empty": {
+    "message": "No hosted servers yet. Add one to get started."
+  },
+  "app.host.game-version-label": {
+    "message": "Minecraft version"
+  },
+  "app.host.loader-label": {
+    "message": "Loader"
+  },
+  "app.host.name-label": {
+    "message": "Server name"
+  },
+  "app.host.option-custom-description": {
+    "message": "Choose a Minecraft version and loader yourself, no modpack"
+  },
+  "app.host.option-custom-title": {
+    "message": "Custom setup"
+  },
+  "app.host.option-import-description": {
+    "message": "Use a .mrpack or CurseForge modpack .zip already on your computer"
+  },
+  "app.host.option-import-title": {
+    "message": "Import a modpack file"
+  },
+  "app.host.option-search-description": {
+    "message": "Browse Modrinth and CurseForge modpacks"
+  },
+  "app.host.option-search-title": {
+    "message": "Choose a modpack"
+  },
+  "app.host.pin": {
+    "message": "Pin to sidebar"
+  },
+  "app.host.subtitle": {
+    "message": "Download a modpack and run it as a dedicated server on this computer."
+  },
+  "app.host.title": {
+    "message": "Hosted servers"
+  },
+  "app.host.unpin": {
+    "message": "Unpin from sidebar"
+  },
   "app.hosting.update-required.description": {
-    "message": "You need to update to use Modrinth Hosting through the Modrinth App"
+    "message": "You need to update to use Modrinth Hosting through Sleepless Launcher"
   },
   "app.hosting.update-required.download": {
     "message": "Download to update"
   },
-  "app.hosting.update-required.rinthbot-alt": {
-    "message": "Excited Modrinth Bot"
-  },
   "app.hosting.update-required.title": {
-    "message": "Modrinth App update required"
+    "message": "Update required"
   },
   "app.icon-editor.apply-icons-modal.apply-error": {
     "message": "Failed to apply random icons to instances."
@@ -363,7 +531,7 @@
     "message": "Close"
   },
   "app.icon-editor.apply-icons-modal.description": {
-    "message": "Create custom icons for your instances right in the Modrinth App. Mix and match backgrounds with symbols from Minecraft and popular mods!"
+    "message": "Create custom icons for your instances right in Sleepless Launcher. Mix and match backgrounds with symbols from Minecraft and popular mods!"
   },
   "app.icon-editor.apply-icons-modal.instances-without-icons": {
     "message": "{count, plural, one {# instance doesn’t} other {# instances don’t}} have icons yet. Want us to give {count, plural, one {it} other {them}} random ones to get started?"
@@ -1007,6 +1175,9 @@
   "app.library.instance.action.open-folder": {
     "message": "Open folder"
   },
+  "app.library.instance.action.pin-to-sidebar": {
+    "message": "Pin to sidebar"
+  },
   "app.library.instance.action.play": {
     "message": "Play"
   },
@@ -1018,6 +1189,9 @@
   },
   "app.library.instance.action.stop": {
     "message": "Stop"
+  },
+  "app.library.instance.action.unpin-from-sidebar": {
+    "message": "Unpin from sidebar"
   },
   "app.library.instance.action.view-instance": {
     "message": "View instance"
@@ -1223,20 +1397,17 @@
   "app.nav.home": {
     "message": "Home"
   },
+  "app.nav.host": {
+    "message": "Host"
+  },
   "app.nav.modrinth-account": {
     "message": "Modrinth account"
-  },
-  "app.nav.modrinth-hosting": {
-    "message": "Modrinth Hosting"
   },
   "app.nav.sign-in-to-modrinth-account": {
     "message": "Sign in to a Modrinth account"
   },
   "app.nav.signed-in-as": {
     "message": "Signed in as <user>{username}</user>"
-  },
-  "app.nav.upgrade-to-modrinth-plus": {
-    "message": "Upgrade to Modrinth+"
   },
   "app.navigation.go-back": {
     "message": "Go back"
@@ -1252,12 +1423,6 @@
   },
   "app.navigation.next-image": {
     "message": "Next image"
-  },
-  "app.news.title": {
-    "message": "News"
-  },
-  "app.news.view-all": {
-    "message": "View all news"
   },
   "app.notification.warning": {
     "message": "Warning"
@@ -1305,7 +1470,7 @@
     "message": "Already installed"
   },
   "app.quick-instance-switcher.drag-show-tooltip": {
-    "message": "Drag to show recent instances"
+    "message": "Drag to show pinned items"
   },
   "app.quick-instance-switcher.drag-tooltip": {
     "message": "Drag to resize"
@@ -1314,7 +1479,16 @@
     "message": "Restarting..."
   },
   "app.settings.app-version": {
-    "message": "Modrinth App {version}"
+    "message": "Sleepless Launcher {version}"
+  },
+  "app.settings.curseforge.api-key.description": {
+    "message": "Required to search and install CurseForge content. Get your own key from the CurseForge for Studios developer console (console.curseforge.com). Stored locally on this device only."
+  },
+  "app.settings.curseforge.api-key.placeholder": {
+    "message": "Paste your personal CurseForge API key..."
+  },
+  "app.settings.curseforge.api-key.title": {
+    "message": "CurseForge API key"
   },
   "app.settings.default-instance-options.environment-variables.description": {
     "message": "Environment variables set when launching an instance."
@@ -1410,16 +1584,10 @@
     "message": "Ads make Modrinth possible and fund creator payouts. Our partners may store or access cookies in the app to personalize ads and measure performance. You can opt out or manage your preferences below."
   },
   "app.settings.privacy.discord-rich-presence.description": {
-    "message": "Show Modrinth App as your current activity on Discord. This does not affect Rich Presence added to instances by mods. Requires an app restart."
+    "message": "Show Sleepless Launcher as your current activity on Discord. This does not affect Rich Presence added to instances by mods. Requires an app restart."
   },
   "app.settings.privacy.discord-rich-presence.title": {
     "message": "Discord Rich Presence"
-  },
-  "app.settings.privacy.telemetry.description": {
-    "message": "Modrinth collects anonymized analytics and usage data to improve our user experience and customize your experience. By disabling this option, you opt out and your data will no longer be collected."
-  },
-  "app.settings.privacy.telemetry.title": {
-    "message": "Telemetry"
   },
   "app.settings.resource-management.always-show-copy-details.description": {
     "message": "Show the Copy details action while an install is queued or running. It is always available for failed or interrupted installs."
@@ -1455,7 +1623,7 @@
     "message": "Browse for an app directory"
   },
   "app.settings.resource-management.app-directory.description": {
-    "message": "Where Modrinth App stores instances and other files. Changes take effect after restarting the app."
+    "message": "Where Sleepless Launcher stores instances and other files. Changes take effect after restarting the app."
   },
   "app.settings.resource-management.app-directory.select": {
     "message": "Select a new app directory"
@@ -1478,11 +1646,17 @@
   "app.settings.sidebar.label.instances": {
     "message": "Instances"
   },
+  "app.settings.sidebar.label.integrations": {
+    "message": "Integrations"
+  },
   "app.settings.tabs.appearance": {
     "message": "Appearance"
   },
   "app.settings.tabs.behavior": {
     "message": "Behavior"
+  },
+  "app.settings.tabs.curseforge": {
+    "message": "CurseForge"
   },
   "app.settings.tabs.default-instance-options": {
     "message": "Default game options"
@@ -1664,29 +1838,14 @@
   "app.skins.toggle-ears-features-on": {
     "message": "Toggle on"
   },
-  "app.survey.body": {
-    "message": "Would you mind answering a few questions about your experience with Modrinth App?"
-  },
-  "app.survey.footer": {
-    "message": "This feedback will go directly to the Modrinth team and help guide future updates!"
-  },
-  "app.survey.no-thanks": {
-    "message": "No thanks"
-  },
-  "app.survey.take-survey": {
-    "message": "Take survey"
-  },
-  "app.survey.title": {
-    "message": "Hey there Modrinth user!"
-  },
   "app.update-popup.body.download-complete": {
-    "message": "Modrinth App v{version} has finished downloading. Reload to update now, or automatically when you close Modrinth App."
+    "message": "Sleepless Launcher v{version} has finished downloading. Reload to update now, or automatically when you close Sleepless Launcher."
   },
   "app.update-popup.body.linux": {
-    "message": "Modrinth App v{version} is available. Use your package manager to update for the latest features and fixes!"
+    "message": "Sleepless Launcher v{version} is available. Use your package manager to update for the latest features and fixes!"
   },
   "app.update-popup.body.metered": {
-    "message": "Modrinth App v{version} is available now! Since you're on a metered network, we didn't automatically download it."
+    "message": "Sleepless Launcher v{version} is available now! Since you're on a metered network, we didn't automatically download it."
   },
   "app.update-popup.changelog": {
     "message": "Changelog"
@@ -1731,7 +1890,7 @@
     "message": "Press <shortcut>N</shortcut> to quick create an instance"
   },
   "app.welcome-screen.title": {
-    "message": "Welcome to Modrinth"
+    "message": "Welcome to Sleepless Launcher"
   },
   "app.world.server-modal.placeholder-address": {
     "message": "example.modrinth.gg"
@@ -1881,7 +2040,7 @@
     "message": "Unlink shared instance"
   },
   "installation-settings.unpublish-shared-instance.modal.admonition-body": {
-    "message": "This deletes the shared instance from Modrinth's servers. People using it in the Modrinth App will stop receiving updates, but your local instance and its content will stay on this device."
+    "message": "This deletes the shared instance from Modrinth's servers. People using it in Sleepless Launcher will stop receiving updates, but your local instance and its content will stay on this device."
   },
   "installation-settings.unpublish-shared-instance.modal.admonition-header": {
     "message": "Unpublishing shared instance"
@@ -2161,9 +2320,6 @@
   },
   "instance.icon-editor.symbol.tnt": {
     "message": "TNT"
-  },
-  "instance.icon-editor.symbol.wrenth-rinth": {
-    "message": "Modrinth Wrench"
   },
   "instance.icon-editor.symbol.zombie": {
     "message": "Zombie"

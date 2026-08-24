@@ -1,10 +1,8 @@
-# ![Modrinth App](/.github/assets/app_cover.png)
+## Sleepless Launcher (app)
 
-## Modrinth App
+Sleepless Launcher is a desktop application for managing your Minecraft mods. It's a personal fork of [Modrinth's app](https://modrinth.com/app), built with [Tauri](https://tauri.app/) and [Vue](https://vuejs.org/), adding a CurseForge content provider alongside Modrinth.
 
-The Modrinth App is a desktop application for managing your Minecraft mods. It is built with [Tauri](https://tauri.app/) and [Vue](https://vuejs.org/).
-
-If you're not a developer and you've stumbled upon this repository, you can download the latest release of the app from the [Modrinth website](https://modrinth.com/app).
+If you're not a developer and you've stumbled upon this repository, you can download the latest release from this repo's [GitHub releases page](https://github.com/L0stFromSleep/SleeplessLauncher/releases).
 
 ## Development
 

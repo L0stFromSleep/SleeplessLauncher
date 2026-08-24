@@ -1,4 +1,10 @@
-import { posthog } from 'posthog-js'
+// Analytics wiring intentionally stripped out for Sleepless Launcher --
+// this previously sent behavioral telemetry (instance launches, project
+// installs, account login/logout, Java paths, etc.) to Modrinth's own
+// PostHog instance under this fork's branding, without Modrinth's
+// knowledge that the traffic wasn't from their own app. The functions
+// below are kept as no-op stubs so the ~25 call sites throughout the app
+// don't need to change; nothing here ever leaves the device.
 
 interface InstanceProperties {
 	loader: string
@@ -43,38 +49,17 @@ type AnalyticsEventMap = {
 
 export type AnalyticsEvent = keyof AnalyticsEventMap
 
-let initialized = false
+export const initAnalytics = () => {}
 
-export const initAnalytics = () => {
-	if (initialized) return
-	posthog.init('phc_9Iqi6lFs9sr5BSqh9RRNRSJ0mATS9PSgirDiX3iOYJ', {
-		persistence: 'localStorage',
-		api_host: 'https://posthog.modrinth.com',
-	})
-	initialized = true
-}
+export const debugAnalytics = () => {}
 
-export const debugAnalytics = () => {
-	if (!initialized) return
-	posthog.debug()
-}
+export const optOutAnalytics = () => {}
 
-export const optOutAnalytics = () => {
-	if (!initialized) return
-	posthog.opt_out_capturing()
-}
-
-export const optInAnalytics = () => {
-	initAnalytics()
-	posthog.opt_in_capturing()
-}
+export const optInAnalytics = () => {}
 
 type OptionalArgs<T> = Record<string, never> extends T ? [properties?: T] : [properties: T]
 
 export const trackEvent = <E extends AnalyticsEvent>(
-	eventName: E,
-	...args: OptionalArgs<AnalyticsEventMap[E]>
-) => {
-	if (!initialized) return
-	posthog.capture(eventName, args[0])
-}
+	_eventName: E,
+	..._args: OptionalArgs<AnalyticsEventMap[E]>
+) => {}

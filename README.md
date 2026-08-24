@@ -1,39 +1,59 @@
-# ![Modrinth Monorepo Cover](/.github/assets/monorepo_cover.png)
+# Sleepless Launcher
 
-![Issues](https://img.shields.io/github/issues-raw/Modrinth/code?color=c78aff&label=issues&style=for-the-badge)
-![Pull Requests](https://img.shields.io/github/issues-pr-raw/Modrinth/code?color=c78aff&label=PRs&style=for-the-badge)
-![Contributors](https://img.shields.io/github/contributors/Modrinth/code?color=c78aff&label=contributors&style=for-the-badge)
-![Lines of Code](https://img.shields.io/endpoint?url=https://loctopus.creeperkatze.dev/github/modrinth/code/badge?style=flat&logoColor=white&color=c78aff&style=for-the-badge)
-![Commit Activity](https://img.shields.io/github/commit-activity/m/Modrinth/code?color=c78aff&label=commits&style=for-the-badge)
-![Last Commit](https://img.shields.io/github/last-commit/Modrinth/code?color=c78aff&label=last%20commit&style=for-the-badge)
+Sleepless Launcher is a personal fork of [Modrinth's](https://modrinth.com)
+open-source desktop app and web platform, adding a CurseForge content
+provider alongside Modrinth in the Explore/search UI. It is **not affiliated
+with, endorsed by, or supported by Rinth, Inc.** — see [COPYING.md](COPYING.md)
+for details on branding and licensing.
 
-## Modrinth Monorepo
-
-Welcome to the Modrinth Monorepo, the primary codebase for the Modrinth web interface and app. It contains ![Lines of code](https://img.shields.io/endpoint?url=https://loctopus.creeperkatze.dev/github/modrinth/code/badge%3Fformat%3Dhuman&logoColor=white&color=black&label=) lines of code and has ![Contributors](https://img.shields.io/github/contributors/Modrinth/code?color=black&label=) contributors!
-
-If you're not a developer and you've stumbled upon this repository, you can access the web interface on the [Modrinth website](https://modrinth.com) and download the latest release of the app [here](https://modrinth.com/app).
+If you're not a developer and you've stumbled upon this repository, you can
+download the latest release of the app from this repo's
+[GitHub releases page](https://github.com/L0stFromSleep/SleeplessLauncher/releases).
 
 ## Development
 
-This repository contains two primary packages. For detailed development information, please refer to their respective guides:
+This repository contains two primary packages. For detailed development
+information, refer to Modrinth's own upstream guides — this fork hasn't
+diverged enough from them to need its own copies yet, but they may not
+reflect every change made here:
 
 - [Website frontend](https://docs.modrinth.com/contributing/knossos/)
 - [Desktop app](https://docs.modrinth.com/contributing/theseus/)
 
 ## Contributing
 
-We welcome contributions! Before submitting any contributions, please read our [contributing guidelines](https://docs.modrinth.com/contributing/getting-started/).
+This is a personal project maintained in my spare time, not a company or
+team effort. Contributions, issues, and pull requests are welcome, but
+please don't expect the same turnaround or process as Modrinth's own repo.
 
-If you plan to fork this repository for your own purposes, please review our [copying guidelines](COPYING.md).
+If you plan to fork this repository for your own purposes, please review
+[COPYING.md](COPYING.md) first — it covers what Modrinth branding must be
+removed from any fork, including this one.
 
 ## Security
 
-If you discover a security vulnerability within our codebase, please follow our [responsible disclosure guidelines](https://modrinth.com/legal/security).
+There's no formal security disclosure process for this fork yet. If you
+find a vulnerability, please open a
+[GitHub issue](https://github.com/L0stFromSleep/SleeplessLauncher/issues) or
+reach out directly. For anything specific to Modrinth's own backend/API
+(which this app connects to), see
+[Modrinth's disclosure guidelines](https://modrinth.com/legal/security)
+instead — that's their infrastructure, not this fork's.
 
 ## Support
 
-If you need help with the Modrinth web interface or app, please visit our [support page](https://support.modrinth.com). For general inquiries, you can also join our [Discord server](https://discord.modrinth.com).
+For help with Sleepless Launcher itself, please open a
+[GitHub issue](https://github.com/L0stFromSleep/SleeplessLauncher/issues).
+
+For anything related to your actual Modrinth account, Modrinth's website,
+or Modrinth's official app, see
+[Modrinth's support page](https://support.modrinth.com) instead — this fork
+uses Modrinth's real account system, but isn't run by Modrinth and can't
+help with issues on their end.
 
 ## License
 
-All packages in this repository are licensed under their respective licenses. Refer to the LICENSE file in each package for more information.
+All packages in this repository are licensed under their respective
+licenses. Refer to the LICENSE file in each package for more information.
+This is a fork — see [COPYING.md](COPYING.md) for what that means for
+Modrinth's own branding and trademarks specifically.

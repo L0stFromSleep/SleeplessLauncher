@@ -11,7 +11,6 @@ import {
 import { ref, watch } from 'vue'
 
 import { open_ads_consent_preferences } from '@/helpers/ads.js'
-import { optInAnalytics, optOutAnalytics } from '@/helpers/analytics'
 import { get, set } from '@/helpers/settings.ts'
 
 const { formatMessage } = useVIntl()
@@ -33,15 +32,6 @@ const messages = defineMessages({
 		id: 'app.ads-consent.manage',
 		defaultMessage: 'Manage preferences',
 	},
-	telemetryTitle: {
-		id: 'app.settings.privacy.telemetry.title',
-		defaultMessage: 'Telemetry',
-	},
-	telemetryDescription: {
-		id: 'app.settings.privacy.telemetry.description',
-		defaultMessage:
-			'Modrinth collects anonymized analytics and usage data to improve our user experience and customize your experience. By disabling this option, you opt out and your data will no longer be collected.',
-	},
 	discordRichPresenceTitle: {
 		id: 'app.settings.privacy.discord-rich-presence.title',
 		defaultMessage: 'Discord Rich Presence',
@@ -49,7 +39,7 @@ const messages = defineMessages({
 	discordRichPresenceDescription: {
 		id: 'app.settings.privacy.discord-rich-presence.description',
 		defaultMessage:
-			'Show Modrinth App as your current activity on Discord. This does not affect Rich Presence added to instances by mods. Requires an app restart.',
+			'Show Sleepless Launcher as your current activity on Discord. This does not affect Rich Presence added to instances by mods. Requires an app restart.',
 	},
 })
 
@@ -60,12 +50,6 @@ async function manageAdsPreferences() {
 watch(
 	settings,
 	async () => {
-		if (settings.value.telemetry) {
-			optInAnalytics()
-		} else {
-			optOutAnalytics()
-		}
-
 		await set(settings.value)
 	},
 	{ deep: true },
@@ -89,18 +73,6 @@ watch(
 	</div>
 
 	<div class="mt-8 flex items-center justify-between gap-4">
-		<div>
-			<h2 class="m-0 text-lg font-semibold text-contrast">
-				{{ formatMessage(messages.telemetryTitle) }}
-			</h2>
-			<p class="m-0 mt-1">
-				{{ formatMessage(messages.telemetryDescription) }}
-			</p>
-		</div>
-		<Toggle id="opt-out-analytics" v-model="settings.telemetry" />
-	</div>
-
-	<div class="mt-4 flex items-center justify-between gap-4">
 		<div>
 			<h2 class="m-0 text-lg font-semibold text-contrast">
 				{{ formatMessage(messages.discordRichPresenceTitle) }}

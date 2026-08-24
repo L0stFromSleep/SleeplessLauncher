@@ -209,9 +209,9 @@ struct ApiRateLimit {
 }
 
 impl ApiRateLimit {
-    fn new() -> Self {
-        let quota = Quota::per_minute(NonZeroU32::new(120).unwrap())
-            .allow_burst(NonZeroU32::new(50).unwrap());
+    fn new(requests_per_minute: u32, burst: u32) -> Self {
+        let quota = Quota::per_minute(NonZeroU32::new(requests_per_minute).unwrap())
+            .allow_burst(NonZeroU32::new(burst).unwrap());
         let recovery_size =
             API_RATE_LIMIT_RECOVERY_SIZE.min(quota.burst_size().get());
 
@@ -313,7 +313,33 @@ impl ApiRateLimit {
 }
 
 static GLOBAL_API_RATE_LIMIT: LazyLock<ApiRateLimit> =
-    LazyLock::new(ApiRateLimit::new);
+    LazyLock::new(|| ApiRateLimit::new(120, 50));
+
+/// CurseForge doesn't publish a documented rate limit (confirmed against
+/// <https://docs.curseforge.com/rest-api/>, which has no rate-limit section
+/// at all) -- this is a conservative default (half Modrinth's local limit
+/// above), relying on the existing 429/`Retry-After` handling in
+/// `ApiRateLimit::handle_response` to adapt if CurseForge's real limit
+/// turns out stricter.
+const CURSEFORGE_API_URL: &str = "https://api.curseforge.com/v1/";
+static CURSEFORGE_API_RATE_LIMIT: LazyLock<ApiRateLimit> =
+    LazyLock::new(|| ApiRateLimit::new(60, 20));
+
+/// Which rate limiter (if any) applies to a request URL, keyed by known API
+/// base URLs -- `None` for everything else (asset CDNs, CurseForge/Modrinth
+/// file download URLs, etc., which aren't subject to either API's request
+/// rate limits).
+fn rate_limit_for_url(url: &str) -> Option<&'static ApiRateLimit> {
+    if url.starts_with(env!("MODRINTH_API_URL"))
+        || url.starts_with(env!("MODRINTH_API_URL_V3"))
+    {
+        Some(&GLOBAL_API_RATE_LIMIT)
+    } else if url.starts_with(CURSEFORGE_API_URL) {
+        Some(&CURSEFORGE_API_RATE_LIMIT)
+    } else {
+        None
+    }
+}
 
 fn parse_retry_after(value: &str, now: SystemTime) -> Option<Duration> {
     if let Ok(seconds) = value.parse::<u64>() {
@@ -611,14 +637,15 @@ async fn fetch_advanced_with_client_and_progress(
 ) -> crate::Result<Bytes> {
     let _permit = semaphore.0.acquire().await?;
 
-    let is_api_url = url.starts_with(env!("MODRINTH_API_URL"))
+    let is_modrinth_api_url = url.starts_with(env!("MODRINTH_API_URL"))
         || url.starts_with(env!("MODRINTH_API_URL_V3"));
-    let fence_key = if is_api_url { uri_path } else { None };
+    let rate_limit = rate_limit_for_url(url);
+    let fence_key = if rate_limit.is_some() { uri_path } else { None };
 
     let creds = if header
         .as_ref()
         .is_none_or(|x| &*x.0.to_lowercase() != "authorization")
-        && (url.starts_with("https://cdn.modrinth.com") || is_api_url)
+        && (url.starts_with("https://cdn.modrinth.com") || is_modrinth_api_url)
     {
         crate::state::ModrinthCredentials::get_active(exec).await?
     } else {
@@ -629,8 +656,8 @@ async fn fetch_advanced_with_client_and_progress(
         .map(|m| (DOWNLOAD_META_HEADER.to_string(), m.to_header_value()));
 
     for attempt in 1..=(FETCH_ATTEMPTS + 1) {
-        if is_api_url {
-            GLOBAL_API_RATE_LIMIT.check()?;
+        if let Some(rate_limit) = rate_limit {
+            rate_limit.check()?;
         }
 
         if let Some(fence_key) = fence_key
@@ -666,9 +693,8 @@ async fn fetch_advanced_with_client_and_progress(
         let result = req.send().await;
         match result {
             Ok(resp) => {
-                if is_api_url
-                    && let Some(error) =
-                        GLOBAL_API_RATE_LIMIT.handle_response(&resp)
+                if let Some(rate_limit) = rate_limit
+                    && let Some(error) = rate_limit.handle_response(&resp)
                 {
                     return Err(error.into());
                 }

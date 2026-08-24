@@ -34,14 +34,17 @@
 						<li>
 							<IntlFormatted :message-id="messages.supportAndBugReports">
 								<template #support-link="{ children }">
-									<AutoLink class="text-link hover:underline" to="https://support.modrinth.com">
+									<AutoLink
+										class="text-link hover:underline"
+										to="https://github.com/L0stFromSleep/SleeplessLauncher/issues"
+									>
 										<component :is="() => children" />
 									</AutoLink>
 								</template>
 								<template #github-link="{ children }">
 									<AutoLink
 										class="text-link hover:underline"
-										to="https://github.com/modrinth/code/issues"
+										to="https://github.com/L0stFromSleep/SleeplessLauncher/issues"
 									>
 										<component :is="() => children" />
 									</AutoLink>

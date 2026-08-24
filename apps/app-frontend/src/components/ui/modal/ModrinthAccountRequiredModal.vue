@@ -210,7 +210,7 @@ function handleHide() {
 }
 
 function openSupport() {
-	openUrl('https://support.modrinth.com')
+	openUrl('https://github.com/L0stFromSleep/SleeplessLauncher/issues')
 }
 
 const messages = defineMessages({

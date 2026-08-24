@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { DownloadIcon, ExcitedRinthbot, RefreshCwIcon, ServerStackIcon } from '@modrinth/assets'
+import { DownloadIcon, RefreshCwIcon, ServerStackIcon } from '@modrinth/assets'
 import { Button, commonMessages, defineMessages, useVIntl } from '@modrinth/ui'
 import { computed } from 'vue'
 
@@ -15,11 +15,11 @@ const { formatMessage } = useVIntl()
 const messages = defineMessages({
 	title: {
 		id: 'app.hosting.update-required.title',
-		defaultMessage: 'Modrinth App update required',
+		defaultMessage: 'Update required',
 	},
 	description: {
 		id: 'app.hosting.update-required.description',
-		defaultMessage: 'You need to update to use Modrinth Hosting through the Modrinth App',
+		defaultMessage: 'You need to update to use Modrinth Hosting through Sleepless Launcher',
 	},
 	downloadToUpdate: {
 		id: 'app.hosting.update-required.download',
@@ -32,10 +32,6 @@ const messages = defineMessages({
 	reloadToUpdate: {
 		id: 'app.action-bar.reload-to-update',
 		defaultMessage: 'Reload to update',
-	},
-	excitedRinthbotAlt: {
-		id: 'app.hosting.update-required.rinthbot-alt',
-		defaultMessage: 'Excited Modrinth Bot',
 	},
 })
 
@@ -71,11 +67,6 @@ async function handleUpdateClick() {
 <template>
 	<div class="box-border flex min-h-full items-center justify-center p-4">
 		<div class="relative mx-auto w-full max-w-xl pt-28">
-			<img
-				:src="ExcitedRinthbot"
-				:alt="formatMessage(messages.excitedRinthbotAlt)"
-				class="absolute right-8 top-0 h-28 w-auto md:right-20"
-			/>
 			<div class="relative flex flex-col gap-5 rounded-lg bg-bg-raised p-7 shadow-lg">
 				<div
 					class="absolute left-0 top-0 h-px w-full bg-gradient-to-r from-transparent via-green-500 to-transparent opacity-40"
