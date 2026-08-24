@@ -196,6 +196,18 @@ pub enum InstallRequest {
         instance_id: String,
         data: SharedInstanceInstallData,
     },
+    /// A locally self-hosted server install (`state::hosting`) -- distinct
+    /// from every other variant here in that it never has (or needs) a
+    /// real `instances` table row. `.target()`/`.cleanup()` fall through to
+    /// the default `NewInstance { instance_id: None }` /
+    /// `DeleteNewInstance { instance_id: None }` arms below, which keeps it
+    /// out of the instance-coupled paths in `install::runner` (job creation
+    /// and progress reporting for this variant is driven directly by
+    /// `state::hosting::install`, not `install::runner::start`/`run_job`).
+    CreateHostedServer {
+        server_id: String,
+        name: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -271,6 +283,9 @@ impl InstallRequest {
             Self::UpdateSharedInstance { .. } => {
                 InstallJobKind::UpdateSharedInstance
             }
+            Self::CreateHostedServer { .. } => {
+                InstallJobKind::CreateHostedServer
+            }
         }
     }
 
@@ -316,6 +331,7 @@ pub enum InstallJobKind {
     InstallExistingInstance,
     InstallPackToExistingInstance,
     UpdateSharedInstance,
+    CreateHostedServer,
 }
 
 impl InstallJobKind {
@@ -331,6 +347,7 @@ impl InstallJobKind {
                 "install_pack_to_existing_instance"
             }
             Self::UpdateSharedInstance => "update_shared_instance",
+            Self::CreateHostedServer => "create_hosted_server",
         }
     }
 
@@ -345,6 +362,7 @@ impl InstallJobKind {
                 Self::InstallPackToExistingInstance
             }
             "update_shared_instance" => Self::UpdateSharedInstance,
+            "create_hosted_server" => Self::CreateHostedServer,
             _ => Self::CreateInstance,
         }
     }
@@ -512,6 +530,9 @@ pub enum InstallPhaseDetails {
     Import {
         launcher_type: ImportLauncherType,
         instance_folder: String,
+    },
+    HostedServer {
+        name: String,
     },
 }
 

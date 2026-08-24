@@ -77,6 +77,13 @@ pub async fn hosting_content_summary(
 }
 
 #[tauri::command]
+pub async fn hosting_content_metadata(
+    id: String,
+) -> Result<std::collections::HashMap<String, HostedContentMetadata>> {
+    Ok(theseus::hosting::content_metadata(id).await?)
+}
+
+#[tauri::command]
 pub async fn hosting_set_icon_path(
     id: String,
     icon_path: Option<String>,
@@ -136,6 +143,21 @@ pub async fn hosting_update_settings(
     .await?)
 }
 
+#[tauri::command]
+pub async fn hosting_get_properties(
+    id: String,
+) -> Result<HostedServerProperties> {
+    Ok(theseus::hosting::get_properties(id).await?)
+}
+
+#[tauri::command]
+pub async fn hosting_set_properties(
+    id: String,
+    properties: HostedServerProperties,
+) -> Result<()> {
+    Ok(theseus::hosting::set_properties(id, properties).await?)
+}
+
 pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("hosting")
         .invoke_handler(tauri::generate_handler![
@@ -152,12 +174,15 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             hosting_set_eula_accepted,
             hosting_get_directory,
             hosting_content_summary,
+            hosting_content_metadata,
             hosting_set_icon_path,
             hosting_set_icon_from_path,
             hosting_install_modrinth_file,
             hosting_install_curseforge_file,
             hosting_install_local_content_file,
             hosting_update_settings,
+            hosting_get_properties,
+            hosting_set_properties,
         ])
         .build()
 }

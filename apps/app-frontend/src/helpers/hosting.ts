@@ -111,6 +111,29 @@ export async function getContentSummary(id: string): Promise<HostedServerContent
 	return await invoke('plugin:hosting|hosting_content_summary', { id })
 }
 
+export type HostedContentProvider = 'modrinth' | 'curseforge'
+
+/** Real project metadata for one installed content file, resolved by hash --
+ *  see `state::hosting::content_metadata` on the backend for why this can't
+ *  just be read back from install-time records the way a client instance's
+ *  content page does. */
+export interface HostedContentMetadata {
+	provider: HostedContentProvider
+	project_id: string
+	version_id: string | null
+	title: string
+	icon_url: string | null
+	project_url: string
+}
+
+/** Keyed by relative path (e.g. `"mods/somejar.jar"`). Files with no match
+ *  on either provider are simply absent from the map. */
+export async function getContentMetadata(
+	id: string,
+): Promise<Record<string, HostedContentMetadata>> {
+	return await invoke('plugin:hosting|hosting_content_metadata', { id })
+}
+
 export async function setIconPath(id: string, iconPath: string | null): Promise<void> {
 	return await invoke('plugin:hosting|hosting_set_icon_path', { id, iconPath })
 }
@@ -163,4 +186,38 @@ export async function updateSettings(
 		maxMemoryMb,
 		extraJavaArgs,
 	})
+}
+
+export type HostedServerDifficulty = 'peaceful' | 'easy' | 'normal' | 'hard'
+export type HostedServerGamemode = 'survival' | 'creative' | 'adventure' | 'spectator'
+
+/** The common `server.properties` fields a server admin actually needs day
+ *  to day -- not a full raw-properties editor. Everything else in the file
+ *  (comments, unmanaged keys like `level-seed`) is left untouched. */
+export interface HostedServerProperties {
+	motd: string
+	max_players: number
+	difficulty: HostedServerDifficulty
+	gamemode: HostedServerGamemode
+	hardcore: boolean
+	pvp: boolean
+	online_mode: boolean
+	white_list: boolean
+	enable_command_block: boolean
+	allow_flight: boolean
+	allow_nether: boolean
+	spawn_protection: number
+	view_distance: number
+	simulation_distance: number
+}
+
+export async function getProperties(id: string): Promise<HostedServerProperties> {
+	return await invoke('plugin:hosting|hosting_get_properties', { id })
+}
+
+export async function setProperties(
+	id: string,
+	properties: HostedServerProperties,
+): Promise<void> {
+	return await invoke('plugin:hosting|hosting_set_properties', { id, properties })
 }

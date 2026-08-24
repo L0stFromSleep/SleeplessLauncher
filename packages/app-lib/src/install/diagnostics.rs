@@ -471,6 +471,7 @@ fn phase_details_suffix(details: &InstallPhaseDetails) -> String {
             launcher_type,
             instance_folder,
         } => format!(" from {launcher_type} instance {instance_folder}"),
+        InstallPhaseDetails::HostedServer { name } => format!(" for {name}"),
     }
 }
 

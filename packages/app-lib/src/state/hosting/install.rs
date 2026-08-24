@@ -18,6 +18,11 @@ use super::{
 };
 use crate::api::pack::install_from::{EnvType, PackFormat};
 use crate::api::pack::install_mrpack::PackZipReader;
+use crate::install::{
+    InstallJobDisplay, InstallJobEventKind, InstallJobState, InstallJobStatus,
+    InstallPhaseDetails, InstallPhaseId, InstallProgress, InstallProgressReporter,
+    InstallRequest,
+};
 use crate::launcher::server_install;
 use crate::state::{CachedEntry, ModLoader, SideType, State};
 use crate::util::fetch;
@@ -25,6 +30,7 @@ use crate::util::io;
 use path_util::SafeRelativeUtf8UnixPathBuf;
 use serde::Deserialize;
 use std::path::Path;
+use uuid::Uuid;
 
 pub enum HostedServerSource {
     Vanilla {
@@ -147,11 +153,16 @@ pub async fn create_and_install_hosted_server(
     };
     let server = HostedServer::create(new_server, state).await?;
 
+    let reporter = begin_install_job(&server, state).await?;
+
     let result =
-        install_hosted_server_files(&server, source, state).await;
+        install_hosted_server_files(&server, source, state, &reporter).await;
 
     match result {
-        Ok(updated) => Ok(updated),
+        Ok(updated) => {
+            let _ = reporter.succeed().await;
+            Ok(updated)
+        }
         Err(err) => {
             HostedServer::set_install_stage(
                 &server.id,
@@ -159,15 +170,67 @@ pub async fn create_and_install_hosted_server(
                 state,
             )
             .await?;
+            let _ = reporter.fail("hosting_error", err.to_string()).await;
             Err(err)
         }
     }
+}
+
+/// Creates the `install_jobs` record and `InstallProgressReporter` that
+/// drives the same download-progress notification client instance installs
+/// show (the popup in `AppActionBar.vue`, backed by `AppEvent::InstallJob`)
+/// -- hosted servers aren't a real `Instance`, so this replicates the first
+/// half of `install::runner::start()` directly rather than going through
+/// it (see `InstallRequest::CreateHostedServer`'s doc comment for why).
+async fn begin_install_job(
+    server: &HostedServer,
+    state: &State,
+) -> crate::Result<InstallProgressReporter> {
+    let job_id = Uuid::new_v4();
+    let request = InstallRequest::CreateHostedServer {
+        server_id: server.id.clone(),
+        name: server.name.clone(),
+    };
+    let mut job_state = InstallJobState::new(request);
+    job_state.display = Some(InstallJobDisplay {
+        title: server.name.clone(),
+        icon: server.icon_path.clone(),
+    });
+
+    let record = crate::install::store::insert(
+        job_id,
+        &job_state,
+        InstallJobStatus::Queued,
+        state,
+    )
+    .await?;
+    crate::install::events::emit_install_job(&record.snapshot()).await?;
+
+    job_state.record_event(InstallJobEventKind::JobStarted);
+    let record = crate::install::store::update_status_if(
+        job_id,
+        InstallJobStatus::Queued,
+        InstallJobStatus::Running,
+        &job_state,
+        state,
+    )
+    .await?
+    .ok_or_else(|| {
+        crate::ErrorKind::OtherError(
+            "Hosted server install job disappeared before it could start"
+                .to_string(),
+        )
+    })?;
+    crate::install::events::emit_install_job(&record.snapshot()).await?;
+
+    Ok(InstallProgressReporter::new(job_id, job_state))
 }
 
 async fn install_hosted_server_files(
     server: &HostedServer,
     source: HostedServerSource,
     state: &State,
+    reporter: &InstallProgressReporter,
 ) -> crate::Result<HostedServer> {
     HostedServer::set_install_stage(
         &server.id,
@@ -175,6 +238,15 @@ async fn install_hosted_server_files(
         state,
     )
     .await?;
+    reporter
+        .update(
+            InstallPhaseId::PreparingInstance,
+            None,
+            InstallPhaseDetails::HostedServer {
+                name: server.name.clone(),
+            },
+        )
+        .await?;
 
     let server_dir = state.directories.hosted_server_dir(&server.id);
     io::create_dir_all(&server_dir).await?;
@@ -188,13 +260,12 @@ async fn install_hosted_server_files(
                 (game_version, server.loader, None)
             }
             HostedServerSource::ModrinthModpack { project_id, version_id } => {
-                let result = install_modrinth_pack_files(
-                    &version_id, &server_dir, state,
-                )
-                .await?;
-
+                // Resolved from `project_id` alone -- doesn't need the pack
+                // downloaded first, so this runs before content download
+                // starts rather than after, and the server's icon shows up
+                // in the list immediately instead of only once installed.
                 if let Err(err) = set_hosted_server_icon_from_modrinth_project(
-                    &server.id, &project_id, state,
+                    &server.id, &project_id, state, reporter,
                 )
                 .await
                 {
@@ -204,16 +275,15 @@ async fn install_hosted_server_files(
                     );
                 }
 
-                result
+                install_modrinth_pack_files(
+                    &version_id, &server_dir, state, reporter, &server.id,
+                    &server.name,
+                )
+                .await?
             }
             HostedServerSource::CurseForgeModpack { mod_id, file_id } => {
-                let result = install_curseforge_pack_files(
-                    &mod_id, &file_id, &server_dir, state,
-                )
-                .await?;
-
                 if let Err(err) = set_hosted_server_icon_from_curseforge_mod(
-                    &server.id, &mod_id, state,
+                    &server.id, &mod_id, state, reporter,
                 )
                 .await
                 {
@@ -223,7 +293,11 @@ async fn install_hosted_server_files(
                     );
                 }
 
-                result
+                install_curseforge_pack_files(
+                    &mod_id, &file_id, &server_dir, state, reporter,
+                    &server.id, &server.name,
+                )
+                .await?
             }
             HostedServerSource::LocalModpackFile { path } => {
                 let bytes = tokio::fs::read(&path)
@@ -232,14 +306,24 @@ async fn install_hosted_server_files(
                 let bytes = bytes::Bytes::from(bytes);
                 match sniff_local_modpack_format(&path).await? {
                     LocalModpackFormat::Mrpack => {
-                        install_mrpack_bytes(bytes, &server_dir, state)
-                            .await?
+                        install_mrpack_bytes(
+                            bytes,
+                            &server_dir,
+                            state,
+                            reporter,
+                            &server.id,
+                            &server.name,
+                        )
+                        .await?
                     }
                     LocalModpackFormat::CurseForge => {
                         install_curseforge_pack_bytes(
                             bytes,
                             &server_dir,
                             state,
+                            reporter,
+                            &server.id,
+                            &server.name,
                         )
                         .await?
                     }
@@ -269,6 +353,7 @@ async fn install_hosted_server_files(
         resolved_loader,
         resolved_loader_version.as_deref(),
         state,
+        reporter,
     )
     .await?;
 
@@ -291,12 +376,30 @@ async fn install_hosted_server_files(
     .execute(&state.pool)
     .await?;
 
-    HostedServer::get(&server.id, state).await?.ok_or_else(|| {
-        crate::ErrorKind::OtherError(
-            "Hosted server disappeared during install".to_string(),
-        )
-        .into()
-    })
+    let installed_server =
+        HostedServer::get(&server.id, state).await?.ok_or_else(|| {
+            crate::ErrorKind::OtherError(
+                "Hosted server disappeared during install".to_string(),
+            )
+        })?;
+
+    // Writes a starter server.properties with our own defaults (including
+    // the configured port) if the server jar hasn't already generated one
+    // -- makes the port setting actually take effect on the first launch,
+    // and gives the settings panel something real to edit immediately
+    // instead of only after the server has been started once.
+    if let Err(err) =
+        super::properties::write_default_properties(&installed_server, state)
+            .await
+    {
+        tracing::warn!(
+            "Failed to write default server.properties for hosted server \
+             {}: {err}",
+            server.id
+        );
+    }
+
+    Ok(installed_server)
 }
 
 /// Downloads a Modrinth `.mrpack`'s server-relevant files
@@ -306,6 +409,9 @@ async fn install_modrinth_pack_files(
     version_id: &str,
     server_dir: &Path,
     state: &State,
+    reporter: &InstallProgressReporter,
+    server_id: &str,
+    server_name: &str,
 ) -> crate::Result<(String, ModLoader, Option<String>)> {
     let version = CachedEntry::get_version(
         version_id,
@@ -340,13 +446,16 @@ async fn install_modrinth_pack_files(
     )
     .await?;
 
-    install_mrpack_bytes(pack_bytes, server_dir, state).await
+    install_mrpack_bytes(pack_bytes, server_dir, state, reporter, server_id, server_name).await
 }
 
 async fn install_mrpack_bytes(
     pack_bytes: bytes::Bytes,
     server_dir: &Path,
     state: &State,
+    reporter: &InstallProgressReporter,
+    server_id: &str,
+    server_name: &str,
 ) -> crate::Result<(String, ModLoader, Option<String>)> {
     let mut zip_reader =
         PackZipReader::new(&crate::api::pack::install_from::CreatePackFile::Bytes(
@@ -401,6 +510,53 @@ async fn install_mrpack_bytes(
         .into());
     }
 
+    // Recorded as soon as the manifest reveals the real loader/game
+    // version -- for a locally-imported pack (the only path where the
+    // caller doesn't already know these upfront), the server would
+    // otherwise show the `HostedServer::create`-time placeholder
+    // (`ModLoader::Vanilla`) in the list for its entire install, even for a
+    // heavily modded pack.
+    if let Err(err) = HostedServer::set_resolved_loader(
+        server_id,
+        &game_version,
+        loader,
+        loader_version.as_deref(),
+        state,
+    )
+    .await
+    {
+        tracing::warn!(
+            "Failed to record resolved loader for hosted server \
+             {server_id}: {err}"
+        );
+    }
+
+    let downloadable_files = pack
+        .files
+        .iter()
+        .filter(|file| {
+            !matches!(
+                file.env.as_ref().and_then(|env| env.get(&EnvType::Server)),
+                Some(&SideType::Unsupported)
+            ) && file.downloads.first().is_some()
+        })
+        .count() as u64;
+    let details = InstallPhaseDetails::HostedServer {
+        name: server_name.to_string(),
+    };
+    reporter
+        .update(
+            InstallPhaseId::DownloadingContent,
+            Some(InstallProgress {
+                current: 0,
+                total: downloadable_files,
+                secondary: None,
+            }),
+            details.clone(),
+        )
+        .await?;
+
+    let mut downloaded_files = 0u64;
     for file in &pack.files {
         if let Some(env) = &file.env
             && env.get(&EnvType::Server) == Some(&SideType::Unsupported)
@@ -434,6 +590,19 @@ async fn install_mrpack_bytes(
             io::create_dir_all(parent).await?;
         }
         io::write(&target, &bytes).await?;
+
+        downloaded_files += 1;
+        reporter
+            .update(
+                InstallPhaseId::DownloadingContent,
+                Some(InstallProgress {
+                    current: downloaded_files,
+                    total: downloadable_files,
+                    secondary: None,
+                }),
+                details.clone(),
+            )
+            .await?;
     }
 
     let override_entries = zip_reader
@@ -513,6 +682,9 @@ async fn install_curseforge_pack_files(
     file_id: &str,
     server_dir: &Path,
     state: &State,
+    reporter: &InstallProgressReporter,
+    server_id: &str,
+    server_name: &str,
 ) -> crate::Result<(String, ModLoader, Option<String>)> {
     let file = crate::state::curseforge::get_file(file_id, state).await?;
     let download_url = file.download_url.clone().ok_or_else(|| {
@@ -522,6 +694,39 @@ async fn install_curseforge_pack_files(
         ))
     })?;
     let _ = mod_id;
+
+    // CurseForge only exposes the real loader/game version via
+    // manifest.json, which lives inside the pack .zip -- for a large pack
+    // that .zip can take a while to download, and until now the server list
+    // kept showing "vanilla" for that entire stretch (`set_resolved_loader`
+    // below only fires once the .zip is fully downloaded and parsed). This
+    // file's own `gameVersions` array is available immediately, before any
+    // of that download starts, and CurseForge already mixes loader names
+    // into it right alongside the game version (see `Browse.vue`'s
+    // `cfLoaders` for the frontend's mirror of this same trick) -- so use it
+    // for an early best-effort guess. The manifest-based call below is still
+    // the authoritative one (it also picks up the exact loader *version*,
+    // which isn't available here) and will correct this if it guessed
+    // wrong.
+    if let Some(loader) = parse_curseforge_loader_hint(&file.game_versions) {
+        let game_version_hint =
+            parse_curseforge_game_version_hint(&file.game_versions)
+                .unwrap_or_default();
+        if let Err(err) = HostedServer::set_resolved_loader(
+            server_id,
+            game_version_hint,
+            loader,
+            None,
+            state,
+        )
+        .await
+        {
+            tracing::warn!(
+                "Failed to record early loader hint for hosted server \
+                 {server_id}: {err}"
+            );
+        }
+    }
 
     let pack_bytes = fetch::fetch(
         &download_url,
@@ -533,13 +738,19 @@ async fn install_curseforge_pack_files(
     )
     .await?;
 
-    install_curseforge_pack_bytes(pack_bytes, server_dir, state).await
+    install_curseforge_pack_bytes(
+        pack_bytes, server_dir, state, reporter, server_id, server_name,
+    )
+    .await
 }
 
 async fn install_curseforge_pack_bytes(
     pack_bytes: bytes::Bytes,
     server_dir: &Path,
     state: &State,
+    reporter: &InstallProgressReporter,
+    server_id: &str,
+    server_name: &str,
 ) -> crate::Result<(String, ModLoader, Option<String>)> {
     let mut zip_reader =
         PackZipReader::new(&crate::api::pack::install_from::CreatePackFile::Bytes(
@@ -574,6 +785,27 @@ async fn install_curseforge_pack_bytes(
         None => (ModLoader::Vanilla, None),
     };
 
+    // Recorded as soon as the manifest reveals the real loader/game
+    // version, well before content download starts -- CurseForge doesn't
+    // expose the loader anywhere else, so `HostedServer::create` has to
+    // record the `ModLoader::Vanilla` placeholder up front. Without this,
+    // the server list shows "vanilla" for the server's entire install, even
+    // for a heavily modded pack.
+    if let Err(err) = HostedServer::set_resolved_loader(
+        server_id,
+        &manifest.minecraft.version,
+        loader,
+        loader_version.as_deref(),
+        state,
+    )
+    .await
+    {
+        tracing::warn!(
+            "Failed to record resolved loader for hosted server \
+             {server_id}: {err}"
+        );
+    }
+
     let file_ids = manifest
         .files
         .iter()
@@ -605,6 +837,23 @@ async fn install_curseforge_pack_bytes(
         .await
         .unwrap_or_default();
 
+    let total_files = resolved_files.len() as u64;
+    let details = InstallPhaseDetails::HostedServer {
+        name: server_name.to_string(),
+    };
+    reporter
+        .update(
+            InstallPhaseId::DownloadingContent,
+            Some(InstallProgress {
+                current: 0,
+                total: total_files,
+                secondary: None,
+            }),
+            details.clone(),
+        )
+        .await?;
+
+    let mut downloaded_files = 0u64;
     for file in resolved_files {
         if let Some(replacement) = modrinth_equivalents.get(&file.id) {
             let bytes = fetch::fetch(
@@ -618,10 +867,23 @@ async fn install_curseforge_pack_bytes(
             .await?;
             let target = mods_dir.join(&replacement.filename);
             io::write(&target, &bytes).await?;
+            downloaded_files += 1;
+            reporter
+                .update(
+                    InstallPhaseId::DownloadingContent,
+                    Some(InstallProgress {
+                        current: downloaded_files,
+                        total: total_files,
+                        secondary: None,
+                    }),
+                    details.clone(),
+                )
+                .await?;
             continue;
         }
 
         let Some(download_url) = file.download_url.clone() else {
+            downloaded_files += 1;
             continue;
         };
         let bytes = fetch::fetch(
@@ -635,6 +897,19 @@ async fn install_curseforge_pack_bytes(
         .await?;
         let target = mods_dir.join(&file.file_name);
         io::write(&target, &bytes).await?;
+
+        downloaded_files += 1;
+        reporter
+            .update(
+                InstallPhaseId::DownloadingContent,
+                Some(InstallProgress {
+                    current: downloaded_files,
+                    total: total_files,
+                    secondary: None,
+                }),
+                details.clone(),
+            )
+            .await?;
     }
 
     let overrides_prefix = format!("{}/", manifest.overrides);
@@ -672,6 +947,7 @@ async fn set_hosted_server_icon_from_modrinth_project(
     server_id: &str,
     project_id: &str,
     state: &State,
+    reporter: &InstallProgressReporter,
 ) -> crate::Result<()> {
     let Some(project) =
         CachedEntry::get_project(project_id, None, &state.pool, &state.api_semaphore)
@@ -683,7 +959,8 @@ async fn set_hosted_server_icon_from_modrinth_project(
         return Ok(());
     };
 
-    download_and_set_hosted_server_icon(server_id, &icon_url, state).await
+    download_and_set_hosted_server_icon(server_id, &icon_url, state, reporter)
+        .await
 }
 
 /// Downloads a CurseForge mod's logo and sets it as a hosted server's icon,
@@ -692,19 +969,22 @@ async fn set_hosted_server_icon_from_curseforge_mod(
     server_id: &str,
     mod_id: &str,
     state: &State,
+    reporter: &InstallProgressReporter,
 ) -> crate::Result<()> {
     let cf_mod = crate::state::curseforge::get_mod(mod_id, state).await?;
     let Some(logo) = cf_mod.logo else {
         return Ok(());
     };
 
-    download_and_set_hosted_server_icon(server_id, &logo.url, state).await
+    download_and_set_hosted_server_icon(server_id, &logo.url, state, reporter)
+        .await
 }
 
 async fn download_and_set_hosted_server_icon(
     server_id: &str,
     icon_url: &str,
     state: &State,
+    reporter: &InstallProgressReporter,
 ) -> crate::Result<()> {
     let bytes = fetch::fetch(
         icon_url,
@@ -722,12 +1002,24 @@ async fn download_and_set_hosted_server_icon(
         server_dir.join(format!("icon.{}", icon_extension_from_url(icon_url)));
     io::write(&icon_path, &bytes).await?;
 
-    HostedServer::set_icon_path(
-        server_id,
-        Some(&icon_path.to_string_lossy()),
-        state,
-    )
-    .await
+    let icon_path_str = icon_path.to_string_lossy().to_string();
+    HostedServer::set_icon_path(server_id, Some(&icon_path_str), state)
+        .await?;
+
+    // Best-effort: the install notification is already showing by this
+    // point with a blank icon (it was created before the icon was known),
+    // so push the now-resolved icon into it live rather than leaving it
+    // blank for the rest of the install.
+    if let Err(err) =
+        reporter.set_display_icon(Some(icon_path_str)).await
+    {
+        tracing::warn!(
+            "Failed to update install notification icon for hosted server \
+             {server_id}: {err}"
+        );
+    }
+
+    Ok(())
 }
 
 /// Copies a locally-picked image file in as a hosted server's icon -- used
@@ -774,6 +1066,32 @@ fn icon_extension_from_url(url: &str) -> &'static str {
     } else {
         "png"
     }
+}
+
+/// Recognizes a loader name out of a CurseForge file's `gameVersions` array,
+/// which mixes Minecraft version numbers, loader names, environment tags
+/// ("Client"/"Server"), and other version-ish labels together with no way to
+/// tell them apart by shape alone. Mirrors `Browse.vue`'s `cfLoaders`.
+fn parse_curseforge_loader_hint(game_versions: &[String]) -> Option<ModLoader> {
+    game_versions.iter().find_map(|value| {
+        match value.to_ascii_lowercase().as_str() {
+            "forge" => Some(ModLoader::Forge),
+            "neoforge" => Some(ModLoader::NeoForge),
+            "fabric" => Some(ModLoader::Fabric),
+            "quilt" => Some(ModLoader::Quilt),
+            _ => None,
+        }
+    })
+}
+
+/// Picks the Minecraft version number out of the same `gameVersions` array
+/// -- the only entries that look like `1.20.1` (start with a digit, contain
+/// a dot) among the loader names/environment tags/other labels mixed in.
+fn parse_curseforge_game_version_hint(game_versions: &[String]) -> Option<&str> {
+    game_versions.iter().find(|value| {
+        value.contains('.')
+            && value.chars().next().is_some_and(|c| c.is_ascii_digit())
+    }).map(String::as_str)
 }
 
 fn parse_curseforge_loader_id(id: &str) -> (ModLoader, Option<String>) {
@@ -839,7 +1157,7 @@ async fn sniff_local_modpack_format(
 /// The content subdirectories a hosted server's individual content installs
 /// (as opposed to whole-modpack installs above) can target, mirroring the
 /// folders `content_summary()` (`api::hosting`) already counts.
-const CONTENT_DIRS: [&str; 4] =
+pub(super) const CONTENT_DIRS: [&str; 4] =
     ["mods", "resourcepacks", "datapacks", "shaderpacks"];
 
 fn validate_content_dir(content_dir: &str) -> crate::Result<()> {

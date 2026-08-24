@@ -1,6 +1,7 @@
 use super::model::{
-    InstallErrorContext, InstallJobEventKind, InstallJobSnapshot,
-    InstallJobState, InstallPhaseDetails, InstallPhaseId, InstallProgress,
+    InstallErrorContext, InstallErrorView, InstallJobEventKind,
+    InstallJobSnapshot, InstallJobState, InstallJobStatus, InstallPhaseDetails,
+    InstallPhaseId, InstallProgress,
 };
 use super::store;
 use std::sync::Arc;
@@ -149,6 +150,107 @@ impl InstallProgressReporter {
             store::update_state(self.job_id, &state.job, &app_state).await?;
         state.mark_persisted();
         emit_install_job(&record.snapshot()).await
+    }
+
+    /// Updates the notification's icon mid-job, once it becomes known --
+    /// for a hosted server created from a modpack/mod, the real icon isn't
+    /// resolved until partway through `state::hosting::install`, well after
+    /// the notification (and its job record) already exist with `icon:
+    /// None`. Without this, the notification stays blank-icon for the
+    /// entire install even though the server list itself picks up the icon
+    /// as soon as it's set.
+    pub async fn set_display_icon(
+        &self,
+        icon: Option<String>,
+    ) -> crate::Result<()> {
+        let app_state = crate::State::get().await?;
+        let mut state = self.state.lock().await;
+        let Some(display) = state.job.display.as_mut() else {
+            return Ok(());
+        };
+        display.icon = icon;
+
+        let record =
+            store::update_state(self.job_id, &state.job, &app_state).await?;
+        state.mark_persisted();
+        emit_install_job(&record.snapshot()).await
+    }
+
+    /// Marks the job finished successfully. Only for jobs whose target
+    /// isn't a real client `Instance` (e.g. hosted server installs, see
+    /// `state::hosting::install`) -- those go through
+    /// `install::runner`'s `run_job`/`store::complete_success` instead,
+    /// which also updates the `instances` table in the same transaction.
+    /// This calls the instance-agnostic `store::finish_active` directly.
+    pub async fn succeed(&self) -> crate::Result<InstallJobSnapshot> {
+        let app_state = crate::State::get().await?;
+        let mut state = self.state.lock().await;
+
+        state.job.record_event(InstallJobEventKind::JobSucceeded {
+            instance_id: None,
+        });
+        state.job.progress.phase = InstallPhaseId::Finalizing;
+        state.job.progress.progress = None;
+        state.job.progress.details = InstallPhaseDetails::Empty;
+        state.job.error = None;
+
+        let record = store::finish_active(
+            self.job_id,
+            InstallJobStatus::Succeeded,
+            &state.job,
+            &app_state,
+        )
+        .await?
+        .ok_or_else(|| {
+            crate::ErrorKind::InputError(format!(
+                "Install job {} is no longer active",
+                self.job_id
+            ))
+        })?;
+        state.mark_persisted();
+        let snapshot = record.snapshot();
+        emit_install_job(&snapshot).await?;
+        Ok(snapshot)
+    }
+
+    /// Marks the job failed, using the reporter's own last-known phase
+    /// (whatever was last passed to `update`/`update_with_events`) rather
+    /// than requiring the caller to track/pass it separately. See
+    /// [`Self::succeed`] for why this bypasses `install::runner`.
+    pub async fn fail(
+        &self,
+        code: &str,
+        message: impl Into<String>,
+    ) -> crate::Result<InstallJobSnapshot> {
+        let app_state = crate::State::get().await?;
+        let mut state = self.state.lock().await;
+
+        let phase = state.job.progress.phase;
+        let error_view = InstallErrorView::from_message(code, phase, message);
+        state.job.record_event(InstallJobEventKind::Failed {
+            phase,
+            code: error_view.code.clone(),
+            message: error_view.message.clone(),
+        });
+        state.job.error = Some(error_view);
+
+        let record = store::finish_active(
+            self.job_id,
+            InstallJobStatus::Failed,
+            &state.job,
+            &app_state,
+        )
+        .await?
+        .ok_or_else(|| {
+            crate::ErrorKind::InputError(format!(
+                "Install job {} is no longer active",
+                self.job_id
+            ))
+        })?;
+        state.mark_persisted();
+        let snapshot = record.snapshot();
+        emit_install_job(&snapshot).await?;
+        Ok(snapshot)
     }
 }
 

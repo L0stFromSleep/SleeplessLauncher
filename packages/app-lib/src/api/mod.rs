@@ -58,6 +58,10 @@ pub mod prelude {
         state::{
             DirectoryInfo, ReleaseChannel, db_backup::app_db_backup_dir,
             hosting::{HostedServer, HostedServerProcessMetadata},
+            hosting::content_metadata::{
+                HostedContentMetadata, HostedContentProvider,
+            },
+            hosting::properties::HostedServerProperties,
             pinned_items::{PinnedItem, PinnedItemKind, PinnedItemRef},
         },
         util::{

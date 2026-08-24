@@ -25,6 +25,7 @@ import {
 	commonMessages,
 	ContentCardTable,
 	defineMessages,
+	DropdownSelect,
 	EmptyState,
 	FilePageLayout,
 	IconButton,
@@ -39,6 +40,7 @@ import {
 	ReadyTransition,
 	StyledInput,
 	TeleportOverflowMenu,
+	Toggle,
 	useVIntl,
 } from '@modrinth/ui'
 import { open, save } from '@tauri-apps/plugin-dialog'
@@ -57,7 +59,11 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import * as hosting from '@/helpers/hosting'
-import type { HostedServer, HostedServerContentSummary } from '@/helpers/hosting'
+import type {
+	HostedServer,
+	HostedServerContentSummary,
+	HostedServerProperties,
+} from '@/helpers/hosting'
 import { highlightInFolder } from '@/helpers/utils'
 import { useRootBreadcrumb } from '@/providers/breadcrumbs'
 
@@ -78,6 +84,21 @@ const contentSummary = ref<HostedServerContentSummary | null>(null)
 const portInput = ref(25565)
 const memoryInput = ref(4096)
 const extraArgsInput = ref('')
+const propertiesInput = ref<HostedServerProperties | null>(null)
+const propertiesLoading = ref(false)
+
+const difficultyOptions: HostedServerProperties['difficulty'][] = [
+	'peaceful',
+	'easy',
+	'normal',
+	'hard',
+]
+const gamemodeOptions: HostedServerProperties['gamemode'][] = [
+	'survival',
+	'creative',
+	'adventure',
+	'spectator',
+]
 
 const messages = defineMessages({
 	start: { id: 'app.host.detail.start', defaultMessage: 'Start' },
@@ -123,7 +144,66 @@ const messages = defineMessages({
 	changeIcon: { id: 'app.host.detail.change-icon', defaultMessage: 'Change icon' },
 	removeIcon: { id: 'app.host.detail.remove-icon', defaultMessage: 'Remove icon' },
 	saveAs: { id: 'app.host.detail.save-as', defaultMessage: 'Save as…' },
+	sectionNetwork: { id: 'app.host.detail.section-network', defaultMessage: 'Network & performance' },
+	sectionWorld: { id: 'app.host.detail.section-world', defaultMessage: 'World' },
+	sectionRules: { id: 'app.host.detail.section-rules', defaultMessage: 'Rules' },
+	motdLabel: { id: 'app.host.detail.motd-label', defaultMessage: 'Message of the day' },
+	maxPlayersLabel: { id: 'app.host.detail.max-players-label', defaultMessage: 'Max players' },
+	difficultyLabel: { id: 'app.host.detail.difficulty-label', defaultMessage: 'Difficulty' },
+	gamemodeLabel: { id: 'app.host.detail.gamemode-label', defaultMessage: 'Game mode' },
+	hardcoreLabel: { id: 'app.host.detail.hardcore-label', defaultMessage: 'Hardcore' },
+	hardcoreDescription: {
+		id: 'app.host.detail.hardcore-description',
+		defaultMessage: 'Players are permanently banned when they die',
+	},
+	pvpLabel: { id: 'app.host.detail.pvp-label', defaultMessage: 'PvP' },
+	pvpDescription: {
+		id: 'app.host.detail.pvp-description',
+		defaultMessage: 'Allow players to fight each other',
+	},
+	onlineModeLabel: { id: 'app.host.detail.online-mode-label', defaultMessage: 'Online mode' },
+	onlineModeDescription: {
+		id: 'app.host.detail.online-mode-description',
+		defaultMessage: 'Verify players own Minecraft. Turning this off allows unauthenticated clients to connect.',
+	},
+	whitelistLabel: { id: 'app.host.detail.whitelist-label', defaultMessage: 'Whitelist' },
+	whitelistDescription: {
+		id: 'app.host.detail.whitelist-description',
+		defaultMessage: 'Only allow whitelisted players to join',
+	},
+	commandBlocksLabel: {
+		id: 'app.host.detail.command-blocks-label',
+		defaultMessage: 'Command blocks',
+	},
+	allowFlightLabel: { id: 'app.host.detail.allow-flight-label', defaultMessage: 'Allow flight' },
+	allowFlightDescription: {
+		id: 'app.host.detail.allow-flight-description',
+		defaultMessage: "Allow survival players to fly (without this, anti-cheat may kick flying players)",
+	},
+	allowNetherLabel: { id: 'app.host.detail.allow-nether-label', defaultMessage: 'Allow the Nether' },
+	spawnProtectionLabel: {
+		id: 'app.host.detail.spawn-protection-label',
+		defaultMessage: 'Spawn protection radius',
+	},
+	viewDistanceLabel: { id: 'app.host.detail.view-distance-label', defaultMessage: 'View distance' },
+	simulationDistanceLabel: {
+		id: 'app.host.detail.simulation-distance-label',
+		defaultMessage: 'Simulation distance',
+	},
 })
+
+const difficultyLabels: Record<HostedServerProperties['difficulty'], string> = {
+	peaceful: 'Peaceful',
+	easy: 'Easy',
+	normal: 'Normal',
+	hard: 'Hard',
+}
+const gamemodeLabels: Record<HostedServerProperties['gamemode'], string> = {
+	survival: 'Survival',
+	creative: 'Creative',
+	adventure: 'Adventure',
+	spectator: 'Spectator',
+}
 
 type TabKey = 'content' | 'files' | 'console'
 const activeTab = ref<TabKey>('content')
@@ -159,6 +239,14 @@ async function poll() {
 	try {
 		running.value = await hosting.isRunning(serverId.value)
 		logs.value = await hosting.getLogBuffer(serverId.value)
+		// While a modpack install is in progress, the loader/game version/
+		// icon shown in the header get resolved in the background partway
+		// through -- re-fetch so they show up live instead of staying
+		// frozen at whatever was known when the page first loaded.
+		if (server.value?.install_stage === 'installing') {
+			const updated = await hosting.get(serverId.value)
+			if (updated) server.value = updated
+		}
 		if (activeTab.value === 'console') {
 			await nextTick()
 			if (consoleEl.value) {
@@ -228,6 +316,19 @@ async function sendCommand() {
 	}
 }
 
+async function openSettings() {
+	settingsModal.value?.show()
+	propertiesLoading.value = true
+	try {
+		propertiesInput.value = await hosting.getProperties(serverId.value)
+	} catch (err) {
+		handleError(err as Error)
+		propertiesInput.value = null
+	} finally {
+		propertiesLoading.value = false
+	}
+}
+
 async function saveSettings() {
 	try {
 		await hosting.updateSettings(
@@ -236,6 +337,9 @@ async function saveSettings() {
 			memoryInput.value,
 			extraArgsInput.value.trim() || null,
 		)
+		if (propertiesInput.value) {
+			await hosting.setProperties(serverId.value, propertiesInput.value)
+		}
 		await refreshServer()
 		settingsModal.value?.hide()
 	} catch (err) {
@@ -344,6 +448,32 @@ async function refreshContentItems() {
 			}
 		}
 		contentItems.value = items
+
+		// Resolves real project metadata (title, icon, provider link) by hash
+		// for whatever's actually a known Modrinth/CurseForge file -- without
+		// this every item shows as a bare "Uploaded" file, even mods that
+		// came straight from an installed modpack.
+		try {
+			const metadata = await hosting.getContentMetadata(serverId.value)
+			contentItems.value = contentItems.value.map((item) => {
+				const info = metadata[item.id]
+				if (!info) return item
+				return {
+					...item,
+					project: {
+						id: info.project_id,
+						slug: null,
+						title: info.title,
+						icon_url: info.icon_url,
+					},
+					projectLink: info.project_url,
+					external: false,
+					hideSwitchVersion: true,
+				}
+			})
+		} catch {
+			// Best-effort -- content still shows as plain uploaded files.
+		}
 	} finally {
 		contentItemsLoading.value = false
 	}
@@ -670,7 +800,7 @@ useRootBreadcrumb({
 						<StopCircleIcon v-else />
 						{{ formatMessage(messages.stop) }}
 					</Button>
-					<IconButton :label="formatMessage(messages.settings)" @click="settingsModal?.show()">
+					<IconButton :label="formatMessage(messages.settings)" @click="openSettings">
 						<SettingsIcon />
 					</IconButton>
 					<TeleportOverflowMenu label="More options" :options="overflowOptions">
@@ -753,7 +883,7 @@ useRootBreadcrumb({
 		</div>
 
 		<NewModal ref="settingsModal" :header="formatMessage(messages.settingsModalTitle)">
-			<div class="flex w-[24rem] max-w-full flex-col gap-3">
+			<div class="flex max-h-[70vh] w-[32rem] max-w-full flex-col gap-3 overflow-y-auto pr-1">
 				<div class="flex items-center gap-3">
 					<Avatar
 						:src="hosting.getHostedServerIconUrl(server.icon_path) ?? undefined"
@@ -776,6 +906,9 @@ useRootBreadcrumb({
 						</IconButton>
 					</div>
 				</div>
+				<h3 class="m-0 text-sm font-bold text-contrast">
+					{{ formatMessage(messages.sectionNetwork) }}
+				</h3>
 				<div class="grid grid-cols-2 gap-2">
 					<label class="flex flex-col gap-1 text-sm text-secondary">
 						{{ formatMessage(messages.portLabel) }}
@@ -790,6 +923,129 @@ useRootBreadcrumb({
 					{{ formatMessage(messages.extraArgsLabel) }}
 					<StyledInput v-model="extraArgsInput" />
 				</label>
+
+				<template v-if="propertiesInput">
+					<div class="mt-2 grid grid-cols-3 gap-2">
+						<label class="flex flex-col gap-1 text-sm text-secondary">
+							{{ formatMessage(messages.spawnProtectionLabel) }}
+							<StyledInput v-model.number="propertiesInput.spawn_protection" type="number" />
+						</label>
+						<label class="flex flex-col gap-1 text-sm text-secondary">
+							{{ formatMessage(messages.viewDistanceLabel) }}
+							<StyledInput v-model.number="propertiesInput.view_distance" type="number" />
+						</label>
+						<label class="flex flex-col gap-1 text-sm text-secondary">
+							{{ formatMessage(messages.simulationDistanceLabel) }}
+							<StyledInput v-model.number="propertiesInput.simulation_distance" type="number" />
+						</label>
+					</div>
+
+					<h3 class="m-0 mt-2 text-sm font-bold text-contrast">
+						{{ formatMessage(messages.sectionWorld) }}
+					</h3>
+					<label class="flex flex-col gap-1 text-sm text-secondary">
+						{{ formatMessage(messages.motdLabel) }}
+						<StyledInput v-model="propertiesInput.motd" />
+					</label>
+					<div class="grid grid-cols-3 gap-2">
+						<label class="flex flex-col gap-1 text-sm text-secondary">
+							{{ formatMessage(messages.maxPlayersLabel) }}
+							<StyledInput v-model.number="propertiesInput.max_players" type="number" />
+						</label>
+						<label class="flex flex-col gap-1 text-sm text-secondary">
+							{{ formatMessage(messages.difficultyLabel) }}
+							<DropdownSelect
+								v-model="propertiesInput.difficulty"
+								name="difficulty"
+								:options="difficultyOptions"
+								:display-name="(value: HostedServerProperties['difficulty']) => difficultyLabels[value]"
+							/>
+						</label>
+						<label class="flex flex-col gap-1 text-sm text-secondary">
+							{{ formatMessage(messages.gamemodeLabel) }}
+							<DropdownSelect
+								v-model="propertiesInput.gamemode"
+								name="gamemode"
+								:options="gamemodeOptions"
+								:display-name="(value: HostedServerProperties['gamemode']) => gamemodeLabels[value]"
+							/>
+						</label>
+					</div>
+					<div class="flex items-center justify-between gap-4">
+						<div>
+							<h4 class="m-0 text-sm font-semibold text-contrast">
+								{{ formatMessage(messages.hardcoreLabel) }}
+							</h4>
+							<p class="m-0 mt-0.5 text-xs text-secondary">
+								{{ formatMessage(messages.hardcoreDescription) }}
+							</p>
+						</div>
+						<Toggle v-model="propertiesInput.hardcore" />
+					</div>
+
+					<h3 class="m-0 mt-2 text-sm font-bold text-contrast">
+						{{ formatMessage(messages.sectionRules) }}
+					</h3>
+					<div class="flex items-center justify-between gap-4">
+						<div>
+							<h4 class="m-0 text-sm font-semibold text-contrast">
+								{{ formatMessage(messages.pvpLabel) }}
+							</h4>
+							<p class="m-0 mt-0.5 text-xs text-secondary">
+								{{ formatMessage(messages.pvpDescription) }}
+							</p>
+						</div>
+						<Toggle v-model="propertiesInput.pvp" />
+					</div>
+					<div class="flex items-center justify-between gap-4">
+						<div>
+							<h4 class="m-0 text-sm font-semibold text-contrast">
+								{{ formatMessage(messages.onlineModeLabel) }}
+							</h4>
+							<p class="m-0 mt-0.5 text-xs text-secondary">
+								{{ formatMessage(messages.onlineModeDescription) }}
+							</p>
+						</div>
+						<Toggle v-model="propertiesInput.online_mode" />
+					</div>
+					<div class="flex items-center justify-between gap-4">
+						<div>
+							<h4 class="m-0 text-sm font-semibold text-contrast">
+								{{ formatMessage(messages.whitelistLabel) }}
+							</h4>
+							<p class="m-0 mt-0.5 text-xs text-secondary">
+								{{ formatMessage(messages.whitelistDescription) }}
+							</p>
+						</div>
+						<Toggle v-model="propertiesInput.white_list" />
+					</div>
+					<div class="flex items-center justify-between gap-4">
+						<h4 class="m-0 text-sm font-semibold text-contrast">
+							{{ formatMessage(messages.commandBlocksLabel) }}
+						</h4>
+						<Toggle v-model="propertiesInput.enable_command_block" />
+					</div>
+					<div class="flex items-center justify-between gap-4">
+						<div>
+							<h4 class="m-0 text-sm font-semibold text-contrast">
+								{{ formatMessage(messages.allowFlightLabel) }}
+							</h4>
+							<p class="m-0 mt-0.5 text-xs text-secondary">
+								{{ formatMessage(messages.allowFlightDescription) }}
+							</p>
+						</div>
+						<Toggle v-model="propertiesInput.allow_flight" />
+					</div>
+					<div class="flex items-center justify-between gap-4">
+						<h4 class="m-0 text-sm font-semibold text-contrast">
+							{{ formatMessage(messages.allowNetherLabel) }}
+						</h4>
+						<Toggle v-model="propertiesInput.allow_nether" />
+					</div>
+				</template>
+				<div v-else-if="propertiesLoading" class="flex justify-center py-4">
+					<SpinnerIcon class="size-5 animate-spin text-secondary" />
+				</div>
 			</div>
 			<template #actions>
 				<div class="flex justify-end">

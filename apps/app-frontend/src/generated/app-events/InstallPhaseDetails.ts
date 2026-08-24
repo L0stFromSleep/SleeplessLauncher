@@ -3,4 +3,4 @@ import type { ImportLauncherType } from "./ImportLauncherType";
 import type { InstallJavaStep } from "./InstallJavaStep";
 import type { ModLoader } from "./ModLoader";
 
-export type InstallPhaseDetails = { "type": "empty" } | { "type": "instance", name: string, } | { "type": "minecraft", game_version: string, loader: ModLoader, } | { "type": "java", major_version: number, step: InstallJavaStep, } | { "type": "modpack", project_id: string | null, version_id: string | null, title: string | null, } | { "type": "import", launcher_type: ImportLauncherType, instance_folder: string, };
+export type InstallPhaseDetails = { "type": "empty" } | { "type": "instance", name: string, } | { "type": "minecraft", game_version: string, loader: ModLoader, } | { "type": "java", major_version: number, step: InstallJavaStep, } | { "type": "modpack", project_id: string | null, version_id: string | null, title: string | null, } | { "type": "import", launcher_type: ImportLauncherType, instance_folder: string, } | { "type": "hosted_server", name: string, };

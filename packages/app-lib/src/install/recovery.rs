@@ -438,6 +438,16 @@ fn display_from_request(state: &InstallJobState) -> Option<InstallJobDisplay> {
                 icon: rollback.instance.instance.icon_path.clone(),
             })
         }
+        // Hosted server jobs set `job_state.display` directly when created
+        // (see `state::hosting::install`) rather than relying on this
+        // fallback, but it's provided for consistency in case anything
+        // ever re-derives display from the request alone.
+        InstallRequest::CreateHostedServer { name, .. } => {
+            Some(InstallJobDisplay {
+                title: name.clone(),
+                icon: None,
+            })
+        }
     }
 }
 

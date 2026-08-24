@@ -949,29 +949,83 @@ async fn content_files_to_content_items(
 /// files (their project/version ids aren't Modrinth ids), leaving `project`
 /// and `version` as `None`. Fill those in from the CurseForge API instead.
 ///
-/// One request pair (mod + file) per CurseForge-sourced item, unbatched --
-/// acceptable for the handful of CurseForge mods a typical instance has, but
-/// worth revisiting if that stops being true.
+/// Batched (mod ids via `GET /v1/mods`, file ids via `GET /v1/mods/files`,
+/// each chunked to CurseForge's per-request cap) rather than one request
+/// pair per CurseForge-sourced item -- an unbatched per-item call trips
+/// `CURSEFORGE_API_RATE_LIMIT`'s local quota (60/min + 20 burst) for any
+/// instance with more than a couple dozen CurseForge mods, and every call
+/// beyond that silently failed (leaving `project: None`, which the frontend
+/// renders as an unidentified "Uploaded" file with no icon) since the errors
+/// here were previously swallowed with no fallback or retry.
 async fn enrich_curseforge_content_items(
     items: &mut [ContentItem],
     files: &[(String, ContentFile)],
     state: &State,
 ) {
-    for (index, (_, file)) in files.iter().enumerate() {
-        let Some(metadata) = &file.metadata else {
-            continue;
-        };
-        if metadata.provider != ContentProvider::CurseForge {
-            continue;
-        }
+    let cf_entries = files
+        .iter()
+        .enumerate()
+        .filter_map(|(index, (_, file))| {
+            let metadata = file.metadata.as_ref()?;
+            (metadata.provider == ContentProvider::CurseForge)
+                .then(|| (index, metadata.clone()))
+        })
+        .collect::<Vec<_>>();
+    if cf_entries.is_empty() {
+        return;
+    }
 
-        let cf_mod =
-            match crate::state::curseforge::get_mod(&metadata.project_id, state)
-                .await
-            {
-                Ok(cf_mod) => cf_mod,
-                Err(_) => continue,
-            };
+    let Ok(api_key) = crate::state::curseforge::api_key(state).await else {
+        return;
+    };
+
+    let mod_ids = cf_entries
+        .iter()
+        .filter_map(|(_, metadata)| metadata.project_id.parse::<i64>().ok())
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let mut mods_by_id = HashMap::new();
+    for chunk in mod_ids.chunks(
+        crate::state::curseforge::client::GET_MODS_MAX_BATCH_SIZE,
+    ) {
+        match crate::state::curseforge::client::get_mods(&api_key, chunk, state)
+            .await
+        {
+            Ok(mods) => {
+                mods_by_id.extend(mods.into_iter().map(|m| (m.id, m)))
+            }
+            Err(err) => tracing::warn!(
+                "Failed to batch-resolve CurseForge mod metadata: {err}"
+            ),
+        }
+    }
+
+    let file_ids = cf_entries
+        .iter()
+        .filter_map(|(_, metadata)| metadata.version_id.parse::<i64>().ok())
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let mut files_by_id = HashMap::new();
+    for chunk in file_ids.chunks(
+        crate::state::curseforge::client::GET_FILES_MAX_BATCH_SIZE,
+    ) {
+        match crate::state::curseforge::client::get_files(&api_key, chunk, state)
+            .await
+        {
+            Ok(cf_files) => {
+                files_by_id.extend(cf_files.into_iter().map(|f| (f.id, f)))
+            }
+            Err(err) => tracing::warn!(
+                "Failed to batch-resolve CurseForge file metadata: {err}"
+            ),
+        }
+    }
+
+    for (index, metadata) in cf_entries {
+        let Ok(mod_id) = metadata.project_id.parse::<i64>() else { continue };
+        let Some(cf_mod) = mods_by_id.get(&mod_id) else { continue };
 
         // CurseForge doesn't expose an avatar image for authors the way
         // Modrinth does, so `avatar_url` stays `None` here -- the frontend
@@ -993,12 +1047,15 @@ async fn enrich_curseforge_content_items(
         items[index].project = Some(ContentItemProject {
             id: metadata.project_id.clone(),
             slug: None,
-            title: cf_mod.name,
-            icon_url: cf_mod.logo.map(|logo| logo.url),
+            title: cf_mod.name.clone(),
+            icon_url: cf_mod.logo.clone().map(|logo| logo.url),
             license: License {
                 id: "unknown".to_string(),
                 name: "Unknown".to_string(),
-                url: cf_mod.links.and_then(|links| links.website_url),
+                url: cf_mod
+                    .links
+                    .clone()
+                    .and_then(|links| links.website_url),
             },
             categories: cf_mod
                 .categories
@@ -1008,14 +1065,15 @@ async fn enrich_curseforge_content_items(
             additional_categories: Vec::new(),
         });
 
-        let cf_file =
-            crate::state::curseforge::get_file(&metadata.version_id, state)
-                .await
-                .ok();
+        let cf_file = metadata
+            .version_id
+            .parse::<i64>()
+            .ok()
+            .and_then(|file_id| files_by_id.get(&file_id));
         items[index].version = cf_file.map(|file| ContentItemVersion {
             id: file.id.to_string(),
-            version_number: file.display_name,
-            file_name: file.file_name,
+            version_number: file.display_name.clone(),
+            file_name: file.file_name.clone(),
             date_published: Some(file.file_date.to_rfc3339()),
         });
     }

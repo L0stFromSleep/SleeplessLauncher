@@ -5,9 +5,11 @@
 //! dedicated server jar as a tracked child process instead of launching the
 //! client.
 
+pub mod content_metadata;
 pub mod install;
 pub mod launch;
 pub mod process;
+pub mod properties;
 
 pub use process::HostedServerProcessMetadata;
 
@@ -274,6 +276,41 @@ impl HostedServer {
             "UPDATE hosted_servers SET install_stage = $2, modified = $3 WHERE id = $1",
             id,
             stage,
+            now,
+        )
+        .execute(&state.pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Updates the loader/game version as soon as they're actually known
+    /// from a modpack's manifest -- for CurseForge-sourced (and any
+    /// locally-imported) servers, the real loader isn't known until partway
+    /// through content install (the manifest has to be downloaded and
+    /// parsed first), so `create` has to record a placeholder
+    /// (`ModLoader::Vanilla`) up front. Without this, the server list shows
+    /// "vanilla" for the server's entire install, even for a heavily
+    /// modded pack. Called as soon as the manifest is parsed, well before
+    /// content download finishes.
+    pub async fn set_resolved_loader(
+        id: &str,
+        game_version: &str,
+        loader: crate::state::ModLoader,
+        loader_version: Option<&str>,
+        state: &State,
+    ) -> crate::Result<()> {
+        let now = Utc::now().timestamp();
+        let loader_str = loader.as_str();
+        sqlx::query!(
+            "
+            UPDATE hosted_servers
+            SET game_version = $2, loader = $3, loader_version = $4, modified = $5
+            WHERE id = $1
+            ",
+            id,
+            game_version,
+            loader_str,
+            loader_version,
             now,
         )
         .execute(&state.pool)

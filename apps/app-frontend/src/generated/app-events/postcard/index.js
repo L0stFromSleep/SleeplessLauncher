@@ -539,6 +539,10 @@ function deserialize_INSTALL_JOB_KIND(d) {
         return {
             tag: "update_shared_instance"
         };
+    case 8:
+        return {
+            tag: "create_hosted_server"
+        };
     default:
         throw "variant not implemented"
     }
@@ -714,6 +718,13 @@ function deserialize_INSTALL_PHASE_DETAILS(d) {
             value: {
                 launcher_type: deserialize_IMPORT_LAUNCHER_TYPE(d),
                 instance_folder: d.deserialize_string()
+            }
+        };
+    case 6:
+        return {
+            tag: "hosted_server",
+            value: {
+                name: d.deserialize_string()
             }
         };
     default:

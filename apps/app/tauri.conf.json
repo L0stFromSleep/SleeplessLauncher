@@ -104,7 +104,10 @@
 					"$CONFIG/caches/icons/*",
 					"$APPDATA/profiles/*/saves/*/icon.png",
 					"$APPCONFIG/profiles/*/saves/*/icon.png",
-					"$CONFIG/profiles/*/saves/*/icon.png"
+					"$CONFIG/profiles/*/saves/*/icon.png",
+					"$APPDATA/hosted_servers/*/icon.*",
+					"$APPCONFIG/hosted_servers/*/icon.*",
+					"$CONFIG/hosted_servers/*/icon.*"
 				],
 				"enable": true
 			},

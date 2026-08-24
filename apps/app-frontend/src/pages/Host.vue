@@ -21,7 +21,7 @@ import {
 	useVIntl,
 } from '@modrinth/ui'
 import { open } from '@tauri-apps/plugin-dialog'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { usePinnedItems } from '@/composables/use-pinned-items'
@@ -138,6 +138,37 @@ async function refresh() {
 		loading.value = false
 	}
 }
+
+// Polls quietly (no loading spinner) while any server is actively
+// installing, so the icon/loader this page shows catches up to what the
+// backend resolves partway through install (see hosting/install.rs) instead
+// of sitting on stale "vanilla"/blank-icon placeholders until the next
+// manual refresh or page mount.
+async function pollWhileInstalling() {
+	try {
+		servers.value = await hosting.list()
+	} catch {
+		// Best-effort -- a transient poll failure shouldn't disrupt the page.
+	}
+}
+
+let installPollHandle: ReturnType<typeof setInterval> | null = null
+watch(
+	() => servers.value.some((server) => server.install_stage === 'installing'),
+	(anyInstalling) => {
+		if (anyInstalling && !installPollHandle) {
+			installPollHandle = setInterval(pollWhileInstalling, 1500)
+		} else if (!anyInstalling && installPollHandle) {
+			clearInterval(installPollHandle)
+			installPollHandle = null
+		}
+	},
+	{ immediate: true },
+)
+
+onBeforeUnmount(() => {
+	if (installPollHandle) clearInterval(installPollHandle)
+})
 
 onMounted(refresh)
 

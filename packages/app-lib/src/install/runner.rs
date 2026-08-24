@@ -609,6 +609,12 @@ async fn prepare_initial_instance(
         | InstallRequest::UpdateSharedInstance { instance_id, .. } => {
             prepare_existing_rollback(job_state, state, &instance_id).await?;
         }
+        // Hosted server installs never go through `runner::start`/`run_job`
+        // at all -- `state::hosting::install` drives its own
+        // `InstallProgressReporter` directly (see
+        // `InstallProgressReporter::succeed`/`fail`), so this arm is
+        // unreachable in practice. It only exists to satisfy exhaustiveness.
+        InstallRequest::CreateHostedServer { .. } => {}
     }
 
     Ok(())
@@ -1089,6 +1095,9 @@ async fn run_request(
             emit_instance(&instance_id, InstancePayloadType::Edited).await?;
             Ok(Some(instance_id))
         }
+        // See the matching arm in `prepare_initial_instance` -- hosted
+        // server jobs never reach `run_request`.
+        InstallRequest::CreateHostedServer { .. } => Ok(None),
     }
 }
 

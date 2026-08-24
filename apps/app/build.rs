@@ -412,12 +412,15 @@ fn main() {
                         "hosting_set_eula_accepted",
                         "hosting_get_directory",
                         "hosting_content_summary",
+                        "hosting_content_metadata",
                         "hosting_set_icon_path",
                         "hosting_set_icon_from_path",
                         "hosting_install_modrinth_file",
                         "hosting_install_curseforge_file",
                         "hosting_install_local_content_file",
                         "hosting_update_settings",
+                        "hosting_get_properties",
+                        "hosting_set_properties",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,

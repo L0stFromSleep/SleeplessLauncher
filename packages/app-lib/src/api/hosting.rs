@@ -187,6 +187,28 @@ pub async fn content_summary(
     })
 }
 
+/// Resolves the real Modrinth/CurseForge project behind each file in a
+/// hosted server's content folders, by hash, keyed by relative path (e.g.
+/// `"mods/somejar.jar"`) -- see `state::hosting::content_metadata` for why
+/// this can't just be read back from install-time records the way a client
+/// instance's content page does. Files with no match on either provider are
+/// simply absent from the returned map.
+#[tracing::instrument]
+pub async fn content_metadata(
+    id: String,
+) -> crate::Result<
+    std::collections::HashMap<
+        String,
+        crate::state::hosting::content_metadata::HostedContentMetadata,
+    >,
+> {
+    let state = crate::State::get().await?;
+    Ok(crate::state::hosting::content_metadata::resolve_content_metadata(
+        &id, &state,
+    )
+    .await)
+}
+
 /// Sets (or clears, with `icon_path: None`) a hosted server's icon -- used
 /// both by the automatic modpack-icon set on install and by the manual
 /// "change icon" action in the server's settings.
@@ -296,5 +318,29 @@ pub async fn update_settings(
         extra_java_args.as_deref(),
         &state,
     )
-    .await
+    .await?;
+    // Keeps `server.properties`' `server-port` in sync so the port setting
+    // actually takes effect on the server's next launch -- previously this
+    // column was stored but never applied anywhere.
+    crate::state::hosting::properties::set_port(&id, port, &state).await
+}
+
+/// The common `server.properties` fields a server admin actually needs day
+/// to day (MOTD, difficulty, whitelist, etc.) -- see
+/// `state::hosting::properties` for what's managed and what's left alone.
+#[tracing::instrument]
+pub async fn get_properties(
+    id: String,
+) -> crate::Result<crate::state::hosting::properties::HostedServerProperties> {
+    let state = crate::State::get().await?;
+    crate::state::hosting::properties::get(&id, &state).await
+}
+
+#[tracing::instrument]
+pub async fn set_properties(
+    id: String,
+    properties: crate::state::hosting::properties::HostedServerProperties,
+) -> crate::Result<()> {
+    let state = crate::State::get().await?;
+    crate::state::hosting::properties::set(&id, &properties, &state).await
 }

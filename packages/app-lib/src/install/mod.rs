@@ -9,10 +9,11 @@ pub mod store;
 pub use events::InstallProgressReporter;
 pub use model::{
     InstallErrorContext, InstallErrorView, InstallJavaStep,
-    InstallJobEventKind, InstallJobKind, InstallJobSnapshot, InstallJobStatus,
-    InstallModpackPreview, InstallPhaseDetails, InstallPhaseId,
-    InstallPostInstallEdit, InstallProgress, InstallProgressSecondary,
-    InstallRequest, SharedInstanceExternalFileData, SharedInstanceInstallData,
+    InstallJobDisplay, InstallJobEventKind, InstallJobKind, InstallJobSnapshot,
+    InstallJobState, InstallJobStatus, InstallModpackPreview,
+    InstallPhaseDetails, InstallPhaseId, InstallPostInstallEdit,
+    InstallProgress, InstallProgressSecondary, InstallRequest,
+    SharedInstanceExternalFileData, SharedInstanceInstallData,
     SharedInstanceInstallModpack,
 };
 pub use runner::{

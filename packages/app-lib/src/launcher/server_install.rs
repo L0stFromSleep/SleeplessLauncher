@@ -18,6 +18,9 @@
 
 use super::args::ProcessorSide;
 use super::{download, get_loader_version_from_profile, resolve_minecraft_manifest};
+use crate::install::{
+    InstallPhaseDetails, InstallPhaseId, InstallProgress, InstallProgressReporter,
+};
 use crate::state::{JavaVersion, ModLoader, State};
 use crate::util::fetch;
 use crate::util::io::{self, IOError};
@@ -48,12 +51,14 @@ pub async fn acquire_server_loader(
     loader: ModLoader,
     loader_version: Option<&str>,
     state: &State,
+    reporter: &InstallProgressReporter,
 ) -> crate::Result<AcquiredServerLoader> {
     io::create_dir_all(server_dir).await?;
 
     match loader {
         ModLoader::Vanilla => {
-            acquire_vanilla_server(server_dir, game_version, state).await
+            acquire_vanilla_server(server_dir, game_version, state, reporter)
+                .await
         }
         ModLoader::Fabric | ModLoader::Quilt => {
             acquire_fabric_like_server(
@@ -62,6 +67,7 @@ pub async fn acquire_server_loader(
                 loader,
                 loader_version,
                 state,
+                reporter,
             )
             .await
         }
@@ -72,6 +78,7 @@ pub async fn acquire_server_loader(
                 loader,
                 loader_version,
                 state,
+                reporter,
             )
             .await
         }
@@ -92,7 +99,11 @@ async fn acquire_vanilla_server(
     server_dir: &Path,
     game_version: &str,
     state: &State,
+    reporter: &InstallProgressReporter,
 ) -> crate::Result<AcquiredServerLoader> {
+    reporter
+        .update(InstallPhaseId::ResolvingMinecraft, None, InstallPhaseDetails::Empty)
+        .await?;
     let (minecraft, version_index) =
         resolve_minecraft_manifest(game_version, state).await?;
     let version = &minecraft.versions[version_index];
@@ -109,6 +120,17 @@ async fn acquire_vanilla_server(
             ))
         })?;
 
+    reporter
+        .update(
+            InstallPhaseId::DownloadingMinecraft,
+            Some(InstallProgress {
+                current: 0,
+                total: server_download.size as u64,
+                secondary: None,
+            }),
+            InstallPhaseDetails::Empty,
+        )
+        .await?;
     let bytes = fetch::fetch(
         &server_download.url,
         Some(&server_download.sha1),
@@ -118,6 +140,17 @@ async fn acquire_vanilla_server(
         &state.pool,
     )
     .await?;
+    reporter
+        .update(
+            InstallPhaseId::DownloadingMinecraft,
+            Some(InstallProgress {
+                current: server_download.size as u64,
+                total: server_download.size as u64,
+                secondary: None,
+            }),
+            InstallPhaseDetails::Empty,
+        )
+        .await?;
 
     let jar_path = server_dir.join("server.jar");
     io::write(&jar_path, &bytes).await?;
@@ -180,7 +213,11 @@ async fn acquire_fabric_like_server(
     loader: ModLoader,
     loader_version: Option<&str>,
     state: &State,
+    reporter: &InstallProgressReporter,
 ) -> crate::Result<AcquiredServerLoader> {
+    reporter
+        .update(InstallPhaseId::ResolvingLoader, None, InstallPhaseDetails::Empty)
+        .await?;
     let resolved_loader_version = get_loader_version_from_profile(
         game_version,
         loader,
@@ -212,6 +249,13 @@ async fn acquire_fabric_like_server(
         resolved_loader_version.id
     );
 
+    reporter
+        .update(
+            InstallPhaseId::DownloadingMinecraft,
+            None,
+            InstallPhaseDetails::Empty,
+        )
+        .await?;
     let bytes = fetch::fetch(
         &url,
         None,
@@ -337,7 +381,11 @@ async fn acquire_forge_like_server(
     loader: ModLoader,
     loader_version: Option<&str>,
     state: &State,
+    reporter: &InstallProgressReporter,
 ) -> crate::Result<AcquiredServerLoader> {
+    reporter
+        .update(InstallPhaseId::ResolvingLoader, None, InstallPhaseDetails::Empty)
+        .await?;
     let (minecraft, version_index) =
         resolve_minecraft_manifest(game_version, state).await?;
     let version = &minecraft.versions[version_index];
@@ -379,6 +427,17 @@ async fn acquire_forge_like_server(
                 "Minecraft {game_version} does not publish a server download"
             ))
         })?;
+    reporter
+        .update(
+            InstallPhaseId::DownloadingMinecraft,
+            Some(InstallProgress {
+                current: 0,
+                total: server_jar_download.size as u64,
+                secondary: None,
+            }),
+            InstallPhaseDetails::Empty,
+        )
+        .await?;
     let server_jar_bytes = fetch::fetch(
         &server_jar_download.url,
         Some(&server_jar_download.sha1),
@@ -392,6 +451,17 @@ async fn acquire_forge_like_server(
     io::write(&server_jar_path, &server_jar_bytes).await?;
 
     let libraries_dir = state.directories.libraries_dir();
+    reporter
+        .update(
+            InstallPhaseId::DownloadingMinecraft,
+            Some(InstallProgress {
+                current: 0,
+                total: version_info.libraries.len() as u64,
+                secondary: None,
+            }),
+            InstallPhaseDetails::Empty,
+        )
+        .await?;
     download::download_libraries(
         state,
         &version_info.libraries,
@@ -426,6 +496,28 @@ async fn acquire_forge_like_server(
             server_dir,
             &libraries_dir,
         );
+
+        let server_processor_count = processors
+            .iter()
+            .filter(|processor| {
+                processor
+                    .sides
+                    .as_ref()
+                    .is_none_or(|sides| sides.contains(&String::from("server")))
+            })
+            .count() as u64;
+        let mut completed_processors = 0u64;
+        reporter
+            .update(
+                InstallPhaseId::RunningLoaderProcessors,
+                Some(InstallProgress {
+                    current: 0,
+                    total: server_processor_count,
+                    secondary: None,
+                }),
+                InstallPhaseDetails::Empty,
+            )
+            .await?;
 
         for processor in &processors {
             if let Some(sides) = &processor.sides
@@ -487,6 +579,19 @@ async fn acquire_forge_like_server(
                 ))
                 .as_error());
             }
+
+            completed_processors += 1;
+            reporter
+                .update(
+                    InstallPhaseId::RunningLoaderProcessors,
+                    Some(InstallProgress {
+                        current: completed_processors,
+                        total: server_processor_count,
+                        secondary: None,
+                    }),
+                    InstallPhaseDetails::Empty,
+                )
+                .await?;
         }
     }
 
