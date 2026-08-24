@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO hosted_servers (\n                id, name, game_version, loader, loader_version, provider,\n                project_id, version_id, install_stage, created, modified\n            )\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 10
+    },
+    "nullable": []
+  },
+  "hash": "eae71986313054c41cefa3b63267df67c346a7dcdc78434ae12747a3fb6cbae5"
+}

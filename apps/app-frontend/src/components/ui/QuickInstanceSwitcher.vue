@@ -1,13 +1,14 @@
 <script setup>
-import { SpinnerIcon } from '@modrinth/assets'
+import { PinIcon, SpinnerIcon } from '@modrinth/assets'
 import { Avatar, defineMessages, injectNotificationManager, useVIntl } from '@modrinth/ui'
 import { useQueryClient } from '@tanstack/vue-query'
-import dayjs from 'dayjs'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import NavButton from '@/components/ui/NavButton.vue'
 import { useAppEvent } from '@/composables/use-app-event'
-import { getInstanceIconUrl, list } from '@/helpers/instance'
+import { usePinnedItems } from '@/composables/use-pinned-items'
+import * as hosting from '@/helpers/hosting'
+import { getInstanceIconUrl, list as listInstances } from '@/helpers/instance'
 import { instanceKeys } from '@/pages/instance/query-options'
 
 const ITEM_SIZE = 52
@@ -19,16 +20,48 @@ const queryClient = useQueryClient()
 
 const { formatMessage } = useVIntl()
 
+const { pinnedItems, refresh: refreshPins } = usePinnedItems()
+
 const maxAuto = ref(0)
-const allInstances = ref([])
 const dragging = ref(false)
+
+const instancesById = ref(new Map())
+const serversById = ref(new Map())
 
 const stored = localStorage.getItem(STORAGE_KEY)
 const userLimit = ref(stored === null ? null : Number(stored))
 
-const maxVisible = computed(() => Math.min(maxAuto.value, allInstances.value.length))
+const pinnedEntries = computed(() =>
+	pinnedItems.value
+		.map((pin) => {
+			if (pin.kind === 'instance') {
+				const instance = instancesById.value.get(pin.ref_id)
+				if (!instance) return null
+				return {
+					key: `instance:${instance.id}`,
+					to: `/instance/${encodeURIComponent(instance.id)}`,
+					name: instance.name,
+					iconUrl: getInstanceIconUrl(instance.icon_path),
+					installing: instance.install_stage !== 'installed',
+				}
+			}
+
+			const server = serversById.value.get(pin.ref_id)
+			if (!server) return null
+			return {
+				key: `hosted_server:${server.id}`,
+				to: `/host/${encodeURIComponent(server.id)}`,
+				name: server.name,
+				iconUrl: server.icon_path ?? undefined,
+				installing: server.install_stage !== 'installed',
+			}
+		})
+		.filter((entry) => entry !== null),
+)
+
+const maxVisible = computed(() => Math.min(maxAuto.value, pinnedEntries.value.length))
 const visibleCount = computed(() => Math.min(userLimit.value ?? maxVisible.value, maxVisible.value))
-const recentInstances = computed(() => allInstances.value.slice(0, visibleCount.value))
+const visibleEntries = computed(() => pinnedEntries.value.slice(0, visibleCount.value))
 const canDrag = computed(() => maxVisible.value > 0)
 const showOverdrag = ref(false)
 
@@ -120,35 +153,47 @@ const onDividerPointerUp = (event) => {
 }
 
 const getInstances = async () => {
-	const instances = await list().catch(handleError)
+	const instances = await listInstances().catch(handleError)
+	if (!instances) return
 
 	for (const instance of instances) {
 		queryClient.setQueryData(instanceKeys.detail(instance.id), instance)
 	}
 
-	allInstances.value = instances.sort((a, b) => {
-		const dateACreated = dayjs(a.created)
-		const dateAPlayed = a.last_played ? dayjs(a.last_played) : dayjs(0)
-
-		const dateBCreated = dayjs(b.created)
-		const dateBPlayed = b.last_played ? dayjs(b.last_played) : dayjs(0)
-
-		const dateA = dateACreated.isAfter(dateAPlayed) ? dateACreated : dateAPlayed
-		const dateB = dateBCreated.isAfter(dateBPlayed) ? dateBCreated : dateBPlayed
-
-		if (dateA.isSame(dateB)) {
-			return a.name.localeCompare(b.name)
-		}
-
-		return dateB - dateA
-	})
+	instancesById.value = new Map(instances.map((instance) => [instance.id, instance]))
 }
 
-await getInstances()
+const getServers = async () => {
+	try {
+		const servers = await hosting.list()
+		serversById.value = new Map(servers.map((server) => [server.id, server]))
+	} catch (err) {
+		handleError(err)
+	}
+}
+
+const hasPinnedInstances = computed(() =>
+	pinnedItems.value.some((pin) => pin.kind === 'instance'),
+)
+const hasPinnedServers = computed(() =>
+	pinnedItems.value.some((pin) => pin.kind === 'hosted_server'),
+)
+
+watch(hasPinnedInstances, (has) => {
+	if (has) getInstances()
+})
+watch(hasPinnedServers, (has) => {
+	if (has) getServers()
+})
+
+defineExpose({ refresh: refreshPins })
+
+if (hasPinnedInstances.value) await getInstances()
+if (hasPinnedServers.value) await getServers()
 updateMaxAuto()
 
 useAppEvent('instance', async (event) => {
-	if (event.event !== 'synced') {
+	if (event.event !== 'synced' && hasPinnedInstances.value) {
 		await getInstances()
 	}
 })
@@ -170,7 +215,7 @@ const messages = defineMessages({
 	},
 	dragShowTooltip: {
 		id: 'app.quick-instance-switcher.drag-show-tooltip',
-		defaultMessage: 'Drag to show recent instances',
+		defaultMessage: 'Drag to show pinned items',
 	},
 })
 
@@ -185,32 +230,28 @@ const dividerTooltip = computed(() => {
 <template>
 	<Transition name="top-divider">
 		<div
-			v-if="recentInstances.length > 0"
+			v-if="visibleEntries.length > 0"
 			class="top-divider flex items-center justify-center overflow-hidden"
 		>
 			<div class="h-px w-8 bg-surface-5 shrink-0"></div>
 		</div>
 	</Transition>
 	<TransitionGroup name="quick-instance" tag="div" class="flex flex-col items-center">
-		<div
-			v-for="instance in recentInstances"
-			:key="instance.id"
-			v-tooltip.right="instance.name"
-			class="quick-instance-item"
-		>
-			<NavButton :to="`/instance/${encodeURIComponent(instance.id)}`" class="relative">
+		<div v-for="entry in visibleEntries" :key="entry.key" v-tooltip.right="entry.name" class="quick-instance-item">
+			<NavButton :to="entry.to" class="relative">
 				<Avatar
-					:src="getInstanceIconUrl(instance.icon_path)"
+					:src="entry.iconUrl"
 					size="28px"
-					:tint-by="instance.id"
-					:class="`transition-all ${instance.install_stage !== 'installed' ? `brightness-[0.25] scale-[0.85]` : `group-hover:brightness-75`}`"
+					:tint-by="entry.key"
+					:class="`transition-all ${entry.installing ? `brightness-[0.25] scale-[0.85]` : `group-hover:brightness-75`}`"
 				/>
 				<div
-					v-if="instance.install_stage !== 'installed'"
+					v-if="entry.installing"
 					class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none"
 				>
 					<SpinnerIcon class="animate-spin w-4 h-4" />
 				</div>
+				<PinIcon class="absolute -bottom-1 -right-1 z-10 h-3 w-3 rounded-full bg-bg text-secondary" />
 			</NavButton>
 		</div>
 	</TransitionGroup>

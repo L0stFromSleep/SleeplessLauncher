@@ -220,6 +220,14 @@ const messages = defineMessages({
 let savedModalState: ManagedContentModalState | null = null
 
 function contentOwnerLink(owner: ContentOwner): NonNullable<ContentOwner['link']> {
+	// CurseForge authors have no in-app profile route -- link out to their
+	// real CurseForge profile instead of guessing a Modrinth-shaped one.
+	if (owner.profile_url) {
+		const profileUrl = owner.profile_url
+		return () => {
+			void openUrl(profileUrl)
+		}
+	}
 	if (owner.type === 'user') return `/user/${encodeURIComponent(owner.id)}`
 	return () => {
 		void openUrl(`https://modrinth.com/organization/${owner.id}`)
@@ -420,6 +428,12 @@ const managedContent = computed<ManagedContentData | null>(() => {
 			linkType === 'server_project' ||
 			linkType === 'server_project_modpack' ||
 			(!attachment && isServerInstance.value)
+
+		// Server-type instances always get the plain content list, never the
+		// "View content" managed-content banner/modal -- even when the
+		// linked project is also a modpack (server_project_modpack).
+		if (serverManaged) return null
+
 		const managerName = serverManaged
 			? (sharedManager?.name ??
 				attachment?.server_manager_name ??

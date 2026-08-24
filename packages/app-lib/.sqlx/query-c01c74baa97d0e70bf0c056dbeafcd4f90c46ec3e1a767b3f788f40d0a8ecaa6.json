@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE hosted_servers SET eula_accepted = $2, modified = $3 WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "c01c74baa97d0e70bf0c056dbeafcd4f90c46ec3e1a767b3f788f40d0a8ecaa6"
+}

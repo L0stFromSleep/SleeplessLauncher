@@ -13,6 +13,7 @@ pub const CACHES_FOLDER_NAME: &str = "caches";
 pub const LAUNCHER_LOGS_FOLDER_NAME: &str = "launcher_logs";
 pub const INSTANCES_FOLDER_NAME: &str = "profiles";
 pub const METADATA_FOLDER_NAME: &str = "meta";
+pub const HOSTED_SERVERS_FOLDER_NAME: &str = "hosted_servers";
 
 #[derive(Debug)]
 pub struct DirectoryInfo {
@@ -184,6 +185,20 @@ impl DirectoryInfo {
     #[inline]
     pub fn caches_dir(&self) -> PathBuf {
         self.config_dir.join(CACHES_FOLDER_NAME)
+    }
+
+    /// Get the directory hosted (locally self-hosted) servers live under.
+    /// Kept separate from `instances_dir()` -- hosted servers aren't part of
+    /// the regular client instance library.
+    #[inline]
+    pub fn hosted_servers_dir(&self) -> PathBuf {
+        self.config_dir.join(HOSTED_SERVERS_FOLDER_NAME)
+    }
+
+    /// Get the directory for a specific hosted server.
+    #[inline]
+    pub fn hosted_server_dir(&self, id: &str) -> PathBuf {
+        self.hosted_servers_dir().join(id)
     }
 
     /// Get path from environment variable

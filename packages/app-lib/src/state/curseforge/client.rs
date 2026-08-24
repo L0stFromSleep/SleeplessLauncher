@@ -152,6 +152,30 @@ pub(crate) async fn get_file(
     })
 }
 
+/// `POST /v1/mods`, resolving many mod ids (e.g. every distinct mod
+/// referenced by a modpack manifest) in one request -- avoids one
+/// `GET /v1/mods/{modId}` round-trip per mod when we just need
+/// name/author metadata (e.g. for the Modrinth-equivalent lookup in
+/// `super::modrinth_equivalent`).
+pub(crate) const GET_MODS_MAX_BATCH_SIZE: usize = 500;
+
+pub(crate) async fn get_mods(
+    api_key: &str,
+    mod_ids: &[i64],
+    state: &State,
+) -> crate::Result<Vec<CfMod>> {
+    if mod_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let body = serde_json::json!({ "modIds": mod_ids });
+    let response: CfDataEnvelope<Vec<CfMod>> =
+        fetch_curseforge(Method::POST, "mods", api_key, Some(body), state)
+            .await?;
+
+    Ok(response.data)
+}
+
 /// `POST /v1/mods/files`, resolving many file ids (e.g. every mod file
 /// referenced by a modpack manifest) in one request. CurseForge doesn't
 /// document a hard cap on `fileIds` length for this endpoint; this is a

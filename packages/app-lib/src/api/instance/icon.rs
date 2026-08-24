@@ -218,17 +218,39 @@ pub(crate) async fn migrate_legacy_icons() -> crate::Result<()> {
     let instances = instance_rows::list_instances(&state.pool).await?;
 
     for instance in instances {
-        let Some(icon_path) = instance.icon_path.as_deref() else {
+        let Some(icon_path) = instance.icon_path.clone() else {
             continue;
         };
-        let action = match inspect_legacy_icon(Path::new(icon_path)) {
-            Ok(action) => action,
-            Err(error) => {
+        // `inspect_legacy_icon` does blocking file I/O (std::fs, not
+        // tokio::fs) -- this runs unconditionally on every app launch for
+        // every instance with an icon, so without spawn_blocking it can tie
+        // up an async runtime worker thread per call (worse on a slow disk
+        // or with antivirus scanning each open), starving unrelated
+        // concurrent work -- notably the instance list query the UI is
+        // waiting on at startup -- even though this task itself isn't on
+        // the critical path for anything the user is looking at.
+        let action = match tokio::task::spawn_blocking({
+            let icon_path = icon_path.clone();
+            move || inspect_legacy_icon(Path::new(&icon_path))
+        })
+        .await
+        {
+            Ok(Ok(action)) => action,
+            Ok(Err(error)) => {
                 tracing::warn!(
                     instance_id = instance.id,
                     icon_path,
                     error = %error,
                     "Failed to inspect legacy instance icon"
+                );
+                continue;
+            }
+            Err(join_error) => {
+                tracing::warn!(
+                    instance_id = instance.id,
+                    icon_path,
+                    error = %join_error,
+                    "Legacy instance icon inspection task panicked"
                 );
                 continue;
             }
@@ -238,7 +260,7 @@ pub(crate) async fn migrate_legacy_icons() -> crate::Result<()> {
             LegacyIconAction::Keep => {}
             LegacyIconAction::Normalize => {
                 if let Err(error) =
-                    edit_icon(&instance.id, Some(Path::new(icon_path))).await
+                    edit_icon(&instance.id, Some(Path::new(&icon_path))).await
                 {
                     tracing::warn!(
                         instance_id = instance.id,

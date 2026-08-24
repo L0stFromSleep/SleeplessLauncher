@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE hosted_servers SET icon_path = $2, modified = $3 WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "d21bc6ca55a3cb401dcfb1f8939971e3aafdc1d8ffe57cdfbb9346f29aa19730"
+}

@@ -8,6 +8,18 @@ use tokio::sync::RwLock;
 
 use crate::State;
 
+/// Discord Application client ID for Rich Presence, from
+/// <https://discord.com/developers/applications> ("Sleepless Launcher" app).
+/// The Rich Presence card's app name/icon in Discord's UI is controlled by
+/// the Application registered under this ID in the Developer Portal, not by
+/// anything sent in the activity payload.
+const DISCORD_CLIENT_ID: &str = "1541148253175816242";
+
+/// Asset key for the large Rich Presence image -- must match an asset
+/// uploaded under the above Application's Rich Presence > Art Assets page.
+const DISCORD_RPC_LARGE_IMAGE_KEY: &str = "sleepless_launcher";
+const DISCORD_RPC_LARGE_IMAGE_TEXT: &str = "Sleepless Launcher";
+
 pub struct DiscordGuard {
     client: Arc<RwLock<DiscordIpcClient>>,
     connected: Arc<AtomicBool>,
@@ -17,7 +29,7 @@ impl DiscordGuard {
     /// Initialize discord IPC client, and attempt to connect to it
     /// If it fails, it will still return a DiscordGuard, but the client will be unconnected
     pub fn init() -> crate::Result<DiscordGuard> {
-        let dipc = DiscordIpcClient::new("1123683254248148992");
+        let dipc = DiscordIpcClient::new(DISCORD_CLIENT_ID);
 
         Ok(DiscordGuard {
             client: Arc::new(RwLock::new(dipc)),
@@ -72,8 +84,8 @@ impl DiscordGuard {
 
         let activity = Activity::new().state(msg).assets(
             Assets::new()
-                .large_image("modrinth_simple")
-                .large_text("Modrinth Logo"),
+                .large_image(DISCORD_RPC_LARGE_IMAGE_KEY)
+                .large_text(DISCORD_RPC_LARGE_IMAGE_TEXT),
         );
 
         // Attempt to set the activity

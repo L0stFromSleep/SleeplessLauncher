@@ -65,6 +65,12 @@ pub struct ContentItemOwner {
     pub avatar_url: Option<String>,
     #[serde(rename = "type")]
     pub owner_type: OwnerType,
+    /// Set only for CurseForge-sourced owners, whose profile lives outside
+    /// this app (unlike a Modrinth user/organization, which has an in-app
+    /// route). When present, the frontend should link out to this instead
+    /// of building an in-app `/user/:id` route.
+    #[serde(default)]
+    pub profile_url: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]

@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT COALESCE(MAX(position), -1) + 1 FROM pinned_items",
+  "describe": {
+    "columns": [
+      {
+        "name": "COALESCE(MAX(position), -1) + 1",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "663861880f99014faeff4377cb1af7d468b3db96ef177cfd816b251240c67561"
+}

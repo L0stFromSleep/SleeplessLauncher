@@ -6,6 +6,7 @@ import {
 	FolderOpenIcon,
 	MinusIcon,
 	PaletteIcon,
+	PinIcon,
 	PlayIcon,
 	PlusIcon,
 	StarIcon,
@@ -53,6 +54,14 @@ const messages = defineMessages({
 	removeFromFavorites: {
 		id: 'app.library.instance.action.remove-from-favorites',
 		defaultMessage: 'Remove from favorites',
+	},
+	pinToSidebar: {
+		id: 'app.library.instance.action.pin-to-sidebar',
+		defaultMessage: 'Pin to sidebar',
+	},
+	unpinFromSidebar: {
+		id: 'app.library.instance.action.unpin-from-sidebar',
+		defaultMessage: 'Unpin from sidebar',
 	},
 	addContent: { id: 'app.library.instance.action.add-content', defaultMessage: 'Add content' },
 	viewInstance: {
@@ -439,6 +448,11 @@ watch(selectedLibraryInstances, (selectedInstances) => {
 		<template #remove_from_favorites>
 			<StarIcon style="color: var(--color-text-default); fill: var(--color-text-default)" />
 			{{ formatMessage(messages.removeFromFavorites) }}
+		</template>
+		<template #pin_to_sidebar> <PinIcon /> {{ formatMessage(messages.pinToSidebar) }} </template>
+		<template #unpin_from_sidebar>
+			<PinIcon />
+			{{ formatMessage(messages.unpinFromSidebar) }}
 		</template>
 		<template #add_content> <PlusIcon /> {{ formatMessage(messages.addContent) }} </template>
 		<template #edit> <EyeIcon /> {{ formatMessage(messages.viewInstance) }} </template>

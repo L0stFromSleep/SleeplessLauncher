@@ -43,10 +43,11 @@ import ContextMenu from '@/components/ui/context-menu/index.vue'
 import { useAppServerBrowse } from '@/composables/browse/use-app-server-browse'
 import { useAppEvent } from '@/composables/use-app-event'
 import { useAppSettings } from '@/composables/use-app-settings.ts'
-import { get_project, get_search_results_v3, get_version_many } from '@/helpers/cache.js'
+import { get_project, get_search_results_v3, get_version, get_version_many } from '@/helpers/cache.js'
 import * as curseforge from '@/helpers/curseforge.ts'
 import { classIdForProjectType } from '@/helpers/curseforge.ts'
 import type { CfMod } from '@/helpers/curseforge.ts'
+import * as hosting from '@/helpers/hosting'
 import {
 	install_create_modpack_instance,
 	installJobInstanceId,
@@ -120,6 +121,32 @@ const breadcrumbLabel = computed(() => {
 })
 const appSettings = useAppSettings()
 const browseRouteActive = computed(() => route.path.startsWith('/browse/'))
+// Set (via a dedicated /browse-host/:projectType route, see routes.js) when
+// the Host page's "Choose a modpack" flow sends the user here to pick a
+// modpack for a hosted server rather than a client instance -- hides the
+// project-type tabs (only modpacks make sense to host) and redirects
+// modpack installs to hosting.create() instead of the normal instance-create
+// flow. A route.meta flag (set on the matched route record itself) rather
+// than a query param, since that's resolved statically at route-match time
+// and can't be dropped by any navigation-string parsing quirk.
+const isHostPickerContext = computed(() => route.meta.forHost === true)
+
+// Set (via a `hs` query param) when Browse is opened from an *existing*
+// hosted server's Content tab "Browse content" button (see host/Detail.vue)
+// -- unlike isHostPickerContext (which creates a whole new server from a
+// modpack), this installs a single mod/resourcepack/datapack/shaderpack
+// directly into that server's own content folder.
+const hostedServerId = computed(() => String(route.query.hs ?? ''))
+const isHostContentContext = computed(() => !!hostedServerId.value)
+const hostedServer = ref<hosting.HostedServer | null>(null)
+watch(
+	hostedServerId,
+	async (id) => {
+		hostedServer.value = id ? await hosting.get(id).catch(() => null) : null
+	},
+	{ immediate: true },
+)
+
 const serverSetupModalRef = ref<InstanceType<typeof CreationFlowModal> | null>(null)
 const serverInstallContent = createServerInstallContent({ serverSetupModalRef })
 provideServerInstallContent(serverInstallContent)
@@ -889,6 +916,95 @@ async function chooseFilterMatchingInstallVersion(
 	return { versionId: plan.versionId }
 }
 
+// When Browse is opened from the Host page's "Choose a modpack" flow
+// (isHostPickerContext), a modpack install creates a hosted server instead
+// of a client instance -- this bypasses installVersion()/
+// install_create_modpack_instance entirely (same reasoning as the
+// CurseForge modpack bypass below: those calls are hard-wired to the client
+// instance-creation pipeline).
+async function installAsHostedServer(
+	name: string,
+	source: Parameters<typeof hosting.create>[1],
+) {
+	const server = await hosting.create(name, source)
+	await router.push(`/host/${server.id}`)
+}
+
+// Single-project installs into an *existing* hosted server (isHostContentContext)
+// -- unlike installAsHostedServer above, no new server is created. Hosted
+// servers don't track content by project/hash the way client instances do
+// (see hosting/install.rs's module doc), so this just resolves one version's
+// primary file and downloads it straight into the right content folder.
+function contentDirForProjectType(projectType: string): string | null {
+	switch (projectType) {
+		case 'mod':
+		case 'plugin':
+			return 'mods'
+		case 'resourcepack':
+			return 'resourcepacks'
+		case 'datapack':
+			return 'datapacks'
+		case 'shader':
+			return 'shaderpacks'
+		default:
+			return null
+	}
+}
+
+async function chooseHostedServerInstallVersion(
+	project: Labrinth.Search.v3.ResultSearchProject,
+	projectTypeValue: string,
+) {
+	const plan = await resolveInstallPlan({
+		project: {
+			project_id: project.project_id,
+			title: project.title,
+			icon_url: project.icon_url,
+		},
+		contentType: projectTypeValue as BrowseInstallContentType,
+		selectedFilters: searchState.currentFilters.value,
+		providedFilters: combinedProvidedFilters.value,
+		overriddenProvidedFilterTypes: searchState.overriddenProvidedFilterTypes.value,
+		targetPreferences: getTargetInstallPreferences(
+			{
+				gameVersion: hostedServer.value?.game_version,
+				loader: hostedServer.value?.loader,
+			},
+			projectTypeValue,
+		),
+		getProjectVersions: getInstallProjectVersions,
+	})
+
+	return { versionId: plan.versionId }
+}
+
+async function installModrinthFileToHostedServer(versionId: string, currentProjectType: string) {
+	const contentDir = contentDirForProjectType(currentProjectType)
+	if (!contentDir || !hostedServerId.value) {
+		throw new Error(`Can't install ${currentProjectType} content into a hosted server`)
+	}
+	const version = (await get_version(versionId, 'must_revalidate')) as Labrinth.Versions.v2.Version
+	const file = version.files.find((f) => f.primary) ?? version.files[0]
+	if (!file) {
+		throw new Error('This version has no downloadable files')
+	}
+	await hosting.installModrinthFile(
+		hostedServerId.value,
+		contentDir,
+		file.filename,
+		file.url,
+		file.hashes?.sha1 ?? null,
+	)
+}
+
+async function installCurseForgeFileToHostedServer(fileId: string, currentProjectType: string) {
+	const contentDir = contentDirForProjectType(currentProjectType)
+	if (!contentDir || !hostedServerId.value) {
+		throw new Error(`Can't install ${currentProjectType} content into a hosted server`)
+	}
+	await hosting.installCurseForgeFile(hostedServerId.value, contentDir, fileId)
+}
+
 const curseforgeInstalling = ref<Set<string>>(new Set())
 const curseforgeInstalled = ref<Set<string>>(new Set())
 
@@ -938,6 +1054,15 @@ function getCurseForgeModpackCardActions(
 
 				curseforgeInstalling.value = new Set([...curseforgeInstalling.value, result.project_id])
 				try {
+					if (isHostPickerContext.value) {
+						await installAsHostedServer(mod.name, {
+							type: 'curseforge_modpack',
+							mod_id: mod.id.toString(),
+							file_id: file.id.toString(),
+						})
+						return
+					}
+
 					const job = await install_create_modpack_instance({
 						type: 'fromCurseForgeFile',
 						mod_id: mod.id.toString(),
@@ -966,7 +1091,7 @@ function getCurseForgeCardActions(
 	currentProjectType: string,
 ): CardAction[] {
 	const mod = result.__curseforge
-	const canInstall = !!instance.value
+	const canInstall = !!instance.value || isHostContentContext.value
 
 	if (mod.allowModDistribution === false) {
 		return [
@@ -1001,7 +1126,7 @@ function getCurseForgeCardActions(
 			color: 'brand',
 			type: 'outlined',
 			onClick: async () => {
-				if (!instance.value) return
+				if (!instance.value && !isHostContentContext.value) return
 				const file = mod.latestFiles[0]
 				if (!file) {
 					handleError(new Error(`No files available for "${mod.name}" on CurseForge`))
@@ -1010,11 +1135,15 @@ function getCurseForgeCardActions(
 
 				curseforgeInstalling.value = new Set([...curseforgeInstalling.value, result.project_id])
 				try {
-					await install_curseforge_project_with_dependencies(instance.value.id, {
-						mod_id: mod.id.toString(),
-						file_id: file.id.toString(),
-						content_type: currentProjectType as Labrinth.Content.v3.ContentType,
-					})
+					if (isHostContentContext.value) {
+						await installCurseForgeFileToHostedServer(file.id.toString(), currentProjectType)
+					} else if (instance.value) {
+						await install_curseforge_project_with_dependencies(instance.value.id, {
+							mod_id: mod.id.toString(),
+							file_id: file.id.toString(),
+							content_type: currentProjectType as Labrinth.Content.v3.ContentType,
+						})
+					}
 					curseforgeInstalled.value = new Set([...curseforgeInstalled.value, result.project_id])
 					onSearchResultInstalled(result.project_id)
 				} catch (err) {
@@ -1145,7 +1274,7 @@ function getCardActions(
 	}
 
 	const isModpack = projectResult.project_types?.includes('modpack')
-	const shouldUseInstallIcon = !!instance.value || isModpack
+	const shouldUseInstallIcon = !!instance.value || isModpack || isHostContentContext.value
 
 	return [
 		{
@@ -1167,6 +1296,42 @@ function getCardActions(
 			onClick: async () => {
 				setProjectInstalling(projectResult.project_id, true)
 				try {
+					if (isHostPickerContext.value && isModpack) {
+						const selected = await chooseFilterMatchingInstallVersion(
+							projectResult,
+							currentProjectType,
+						)
+						if (selected === null || !selected.versionId) {
+							setProjectInstalling(projectResult.project_id, false)
+							return
+						}
+						await installAsHostedServer(projectResult.name, {
+							type: 'modrinth_modpack',
+							project_id: projectResult.project_id,
+							version_id: selected.versionId,
+						})
+						setProjectInstalling(projectResult.project_id, false)
+						return
+					}
+
+					if (isHostContentContext.value && !isModpack) {
+						const selected = await chooseHostedServerInstallVersion(
+							projectResult,
+							currentProjectType,
+						)
+						if (selected === null || !selected.versionId) {
+							setProjectInstalling(projectResult.project_id, false)
+							return
+						}
+						try {
+							await installModrinthFileToHostedServer(selected.versionId, currentProjectType)
+							onSearchResultInstalled(projectResult.project_id)
+						} finally {
+							setProjectInstalling(projectResult.project_id, false)
+						}
+						return
+					}
+
 					const selectedInstall = instance.value
 						? await chooseInstanceInstallVersion(projectResult, currentProjectType)
 						: isModpack
@@ -1680,7 +1845,7 @@ provideBrowseManager({
 		query: getProjectBrowseQuery(),
 	}),
 	selectableProjectTypes,
-	showProjectTypeTabs: computed(() => !isServerContext.value),
+	showProjectTypeTabs: computed(() => !isServerContext.value && !isHostPickerContext.value),
 	variant: 'app',
 	getCardActions,
 	installContext,

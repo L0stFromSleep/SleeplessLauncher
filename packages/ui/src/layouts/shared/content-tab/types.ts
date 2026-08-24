@@ -20,6 +20,9 @@ export interface ContentOwner {
 	avatar_url?: string
 	type: 'user' | 'organization'
 	link?: string | RouteLocationRaw | (() => void)
+	/** Set only for CurseForge-sourced owners -- their profile lives outside
+	 *  this app, unlike a Modrinth user/organization which has an in-app route. */
+	profile_url?: string
 }
 
 export interface ContentSource {

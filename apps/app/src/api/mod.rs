@@ -29,6 +29,8 @@ pub mod cache;
 pub mod curseforge;
 pub mod files;
 pub mod friends;
+pub mod hosting;
+pub mod pinned_items;
 pub mod worlds;
 
 mod oauth_utils;

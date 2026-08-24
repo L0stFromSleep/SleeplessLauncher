@@ -36,6 +36,7 @@ pub(crate) mod hooks;
 
 pub mod download;
 pub mod quick_play_version;
+pub mod server_install;
 
 // All nones -> disallowed
 // 1+ true -> allowed
@@ -614,6 +615,7 @@ pub async fn install_minecraft_with_reporter(
                         &libraries_dir,
                         &processor.args,
                         data,
+                        args::ProcessorSide::Client,
                     )?)
                     .output()
                     .await

@@ -175,7 +175,7 @@ pub async fn rename_group(
     let state = State::get().await?;
     let mut tx = state.pool.begin().await?;
 
-    let instance_ids = sqlx::query_scalar!(
+    let instance_ids: Vec<String> = sqlx::query_scalar!(
         "
 		SELECT instance_id
 		FROM instance_group_memberships
@@ -225,7 +225,7 @@ pub async fn delete_group(id: String) -> crate::Result<()> {
 
     let state = State::get().await?;
     let mut tx = state.pool.begin().await?;
-    let instance_ids = sqlx::query_scalar!(
+    let instance_ids: Vec<String> = sqlx::query_scalar!(
         "
 		SELECT instance_id
 		FROM instance_group_memberships

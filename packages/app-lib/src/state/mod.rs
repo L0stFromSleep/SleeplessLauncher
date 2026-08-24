@@ -43,6 +43,10 @@ pub use self::cache::*;
 
 pub mod curseforge;
 
+pub mod hosting;
+
+pub mod pinned_items;
+
 mod friends;
 pub use self::friends::*;
 
@@ -87,6 +91,9 @@ pub struct State {
 
     /// Process manager
     pub process_manager: ProcessManager,
+
+    /// Process manager for locally hosted server processes
+    pub hosting_process_manager: hosting::process::HostedServerProcessManager,
 
     // NOTE: we explicitly must NOT store the app identifier in the state object,
     // because creating the state object is fallible (e.g. database missing),
@@ -245,6 +252,8 @@ impl State {
         let file_watcher = instances::watcher::init_watcher().await?;
 
         let process_manager = ProcessManager::new();
+        let hosting_process_manager =
+            hosting::process::HostedServerProcessManager::new();
 
         let friends_socket = FriendsSocket::new();
 
@@ -259,6 +268,7 @@ impl State {
             shared_instance_locks: DashMap::new(),
             discord_rpc,
             process_manager,
+            hosting_process_manager,
             friends_socket,
             restart_after_pending_update: AtomicBool::new(false),
             pool,

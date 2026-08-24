@@ -396,6 +396,47 @@ fn main() {
                     ),
             )
             .plugin(
+                "hosting",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "hosting_list",
+                        "hosting_get",
+                        "hosting_create",
+                        "hosting_delete",
+                        "hosting_start",
+                        "hosting_stop",
+                        "hosting_send_command",
+                        "hosting_is_running",
+                        "hosting_get_process",
+                        "hosting_get_log_buffer",
+                        "hosting_set_eula_accepted",
+                        "hosting_get_directory",
+                        "hosting_content_summary",
+                        "hosting_set_icon_path",
+                        "hosting_set_icon_from_path",
+                        "hosting_install_modrinth_file",
+                        "hosting_install_curseforge_file",
+                        "hosting_install_local_content_file",
+                        "hosting_update_settings",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
+                "pinned-items",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "pinned_items_list",
+                        "pinned_items_pin",
+                        "pinned_items_unpin",
+                        "pinned_items_set_order",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
+            )
+            .plugin(
                 "worlds",
                 InlinedPlugin::new()
                     .commands(&[

@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import * as Pages from '@/pages'
-import * as Hosting from '@/pages/hosting/manage'
+import * as Host from '@/pages/host'
 import * as Instance from '@/pages/instance'
 import * as Project from '@/pages/project'
 
@@ -17,46 +17,33 @@ export default new createRouter({
 			component: Pages.Index,
 		},
 		{
-			path: '/hosting/manage/',
-			name: 'Servers',
-			component: Pages.Servers,
+			path: '/host',
+			name: 'Host',
+			component: Pages.Host,
 		},
 		{
-			path: '/hosting/manage/:id',
-			name: 'ServerManage',
-			component: Hosting.Index,
-			children: [
-				{
-					path: '',
-					name: 'ServerManageOverview',
-					component: Hosting.Overview,
-				},
-				{
-					path: 'content',
-					name: 'ServerManageContent',
-					component: Hosting.Content,
-				},
-				{
-					path: 'files',
-					name: 'ServerManageFiles',
-					component: Hosting.Files,
-				},
-				{
-					path: 'backups',
-					name: 'ServerManageBackups',
-					component: Hosting.Backups,
-				},
-				{
-					path: 'access',
-					name: 'ServerManageAccess',
-					component: Hosting.Access,
-				},
-			],
+			path: '/host/:id',
+			name: 'HostDetail',
+			component: Host.Detail,
 		},
 		{
 			path: '/browse/:projectType',
 			name: 'Discover content',
 			component: Pages.Browse,
+		},
+		{
+			// Dedicated route (rather than a query param on /browse/:projectType,
+			// which turned out unreliable to detect) for the Host page's "Choose
+			// a modpack" flow -- reuses the same Browse.vue component, but
+			// route.meta.forHost lets it know to create a hosted server instead
+			// of a client instance on install. Kept under the /browse/ prefix
+			// (as a more-specific static segment matched before the dynamic
+			// /browse/:projectType route above) so path-prefix checks elsewhere
+			// in the app (e.g. `route.path.startsWith('/browse/')`) still apply.
+			path: '/browse/host/:projectType',
+			name: 'Discover content for hosting',
+			component: Pages.Browse,
+			meta: { forHost: true },
 		},
 		{
 			path: '/skins',

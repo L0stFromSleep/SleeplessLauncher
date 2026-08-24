@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE hosted_servers SET install_stage = $2, modified = $3 WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "311398ab4b68a6a4ccccd46c4d7a4de68e756b135921200618b0faad7e8dc28f"
+}

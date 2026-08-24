@@ -89,6 +89,24 @@
 				},
 				{
 					"path": "$CONFIG/profiles/**"
+				},
+				{
+					"path": "$APPDATA/hosted_servers"
+				},
+				{
+					"path": "$APPDATA/hosted_servers/**"
+				},
+				{
+					"path": "$APPCONFIG/hosted_servers"
+				},
+				{
+					"path": "$APPCONFIG/hosted_servers/**"
+				},
+				{
+					"path": "$CONFIG/hosted_servers"
+				},
+				{
+					"path": "$CONFIG/hosted_servers/**"
 				}
 			]
 		},
@@ -114,6 +132,8 @@
 		"utils:default",
 		"ads:default",
 		"friends:default",
+		"hosting:default",
+		"pinned-items:default",
 		"worlds:default"
 	]
 }

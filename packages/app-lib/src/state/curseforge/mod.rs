@@ -7,6 +7,7 @@
 //! compiled in -- see `Settings::curseforge_api_key`.
 
 pub(crate) mod client;
+pub mod modrinth_equivalent;
 mod models;
 mod provider;
 

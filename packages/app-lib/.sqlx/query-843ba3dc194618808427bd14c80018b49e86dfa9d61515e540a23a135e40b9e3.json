@@ -1,0 +1,116 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT\n                id, name, icon_path, game_version, loader, loader_version,\n                provider, project_id, version_id, port, max_memory_mb,\n                extra_java_args, eula_accepted as \"eula_accepted!: bool\",\n                install_stage, java_major_version, created, modified\n            FROM hosted_servers\n            WHERE id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "icon_path",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "game_version",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "loader",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "loader_version",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "provider",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "project_id",
+        "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "version_id",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "port",
+        "ordinal": 9,
+        "type_info": "Integer"
+      },
+      {
+        "name": "max_memory_mb",
+        "ordinal": 10,
+        "type_info": "Integer"
+      },
+      {
+        "name": "extra_java_args",
+        "ordinal": 11,
+        "type_info": "Text"
+      },
+      {
+        "name": "eula_accepted!: bool",
+        "ordinal": 12,
+        "type_info": "Bool"
+      },
+      {
+        "name": "install_stage",
+        "ordinal": 13,
+        "type_info": "Text"
+      },
+      {
+        "name": "java_major_version",
+        "ordinal": 14,
+        "type_info": "Integer"
+      },
+      {
+        "name": "created",
+        "ordinal": 15,
+        "type_info": "Integer"
+      },
+      {
+        "name": "modified",
+        "ordinal": 16,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "843ba3dc194618808427bd14c80018b49e86dfa9d61515e540a23a135e40b9e3"
+}

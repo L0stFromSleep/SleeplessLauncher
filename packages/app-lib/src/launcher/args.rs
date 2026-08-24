@@ -452,10 +452,20 @@ where
     Ok(())
 }
 
+/// Which side's substitution value to use from a Forge/NeoForge install
+/// profile's `data` entries (each entry carries both a `client` and a
+/// `server` value -- see `daedalus::modded::SidedDataEntry`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProcessorSide {
+    Client,
+    Server,
+}
+
 pub fn get_processor_arguments(
     libraries_path: &Path,
     arguments: &[impl AsRef<str>],
     data: &HashMap<String, SidedDataEntry>,
+    side: ProcessorSide,
 ) -> crate::Result<Vec<String>> {
     // We use iterator combinators to make sure that 1 input argument maps
     // to exactly 1 output argument. Otherwise you might get issues that take
@@ -491,8 +501,12 @@ pub fn get_processor_arguments(
 
                 // replace variables like `{PATH}` to their real values
                 for (key, entry) in data {
+                    let side_value = match side {
+                        ProcessorSide::Client => &entry.client,
+                        ProcessorSide::Server => &entry.server,
+                    };
                     let replacement = if let Some(arg) =
-                        entry.client.strip_prefix('[')
+                        side_value.strip_prefix('[')
                         && let Some(lib_key) = arg.strip_suffix(']')
                     {
                         // if the value of `PATH` in `data` is also a library key,
@@ -500,7 +514,7 @@ pub fn get_processor_arguments(
                         get_lib_path(libraries_path, lib_key, true)?
                     } else {
                         // otherwise we just take the value in `data` literally
-                        entry.client.clone()
+                        side_value.clone()
                     };
 
                     arg = arg.replace(&format!("{{{key}}}"), &replacement);

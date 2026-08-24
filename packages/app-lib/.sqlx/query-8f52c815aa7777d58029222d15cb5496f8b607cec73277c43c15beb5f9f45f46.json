@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE pinned_items SET position = ? WHERE kind = ? AND ref_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "8f52c815aa7777d58029222d15cb5496f8b607cec73277c43c15beb5f9f45f46"
+}

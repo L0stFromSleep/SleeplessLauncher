@@ -137,7 +137,13 @@ pub struct CfCategory {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CfAuthor {
+    pub id: Option<i64>,
     pub name: String,
+    /// Link to the author's CurseForge profile. CurseForge doesn't expose an
+    /// avatar image for authors the way Modrinth does, so this is the only
+    /// extra identity info available for a CurseForge-sourced content
+    /// item's "owner" row.
+    pub url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

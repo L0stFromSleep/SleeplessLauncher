@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        UPDATE hosted_servers\n        SET game_version = $2, loader = $3, loader_version = $4, install_stage = $5, java_major_version = $6\n        WHERE id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "24d65e003922ef77658c673052b003ed20600ed7665116ceeb5ccb5ee26d2688"
+}

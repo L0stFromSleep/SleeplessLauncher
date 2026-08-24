@@ -419,6 +419,7 @@ pub(crate) async fn get_linked_modpack_info(
             name: org.name,
             avatar_url: org.icon_url,
             owner_type: OwnerType::Organization,
+            profile_url: None,
         })
     } else {
         let team = CachedEntry::get_team(
@@ -436,6 +437,7 @@ pub(crate) async fn get_linked_modpack_info(
                     name: member.user.username,
                     avatar_url: member.user.avatar_url,
                     owner_type: OwnerType::User,
+                    profile_url: None,
                 })
         })
     };
@@ -971,6 +973,23 @@ async fn enrich_curseforge_content_items(
                 Err(_) => continue,
             };
 
+        // CurseForge doesn't expose an avatar image for authors the way
+        // Modrinth does, so `avatar_url` stays `None` here -- the frontend
+        // Avatar component already falls back to a placeholder/initials for
+        // a missing avatar, same as it does for a Modrinth user who hasn't
+        // set one.
+        items[index].owner =
+            cf_mod.authors.first().map(|author| ContentItemOwner {
+                id: author
+                    .id
+                    .map(|id| id.to_string())
+                    .unwrap_or_else(|| author.name.clone()),
+                name: author.name.clone(),
+                avatar_url: None,
+                owner_type: OwnerType::User,
+                profile_url: author.url.clone(),
+            });
+
         items[index].project = Some(ContentItemProject {
             id: metadata.project_id.clone(),
             slug: None,
@@ -1145,6 +1164,7 @@ fn resolve_owner(
                 name: organization.name.clone(),
                 avatar_url: organization.icon_url.clone(),
                 owner_type: OwnerType::Organization,
+                profile_url: None,
             })
     } else {
         teams
@@ -1159,6 +1179,7 @@ fn resolve_owner(
                 name: member.user.username.clone(),
                 avatar_url: member.user.avatar_url.clone(),
                 owner_type: OwnerType::User,
+                profile_url: None,
             })
     }
 }

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO pinned_items (kind, ref_id, position, created)\n         VALUES (?, ?, ?, unixepoch())\n         ON CONFLICT (kind, ref_id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "732035f2c41761b8451fc45681d16de749bf95aa111a3fd606093dbc3616b74b"
+}

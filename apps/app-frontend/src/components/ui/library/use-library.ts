@@ -15,6 +15,7 @@ import {
 	watchEffect,
 } from 'vue'
 
+import { usePinnedItems } from '@/composables/use-pinned-items'
 import { trackEvent } from '@/helpers/analytics'
 import { get_project_v3_many } from '@/helpers/cache.js'
 import { toError } from '@/helpers/errors'
@@ -117,6 +118,7 @@ type ContextMenuSelection = {
 function createLibraryState(instances: Ref<GameInstance[]>) {
 	const { handleError } = injectNotificationManager()
 	const { formatMessage } = useVIntl()
+	const { isPinned, toggle: togglePinnedItem } = usePinnedItems()
 
 	const search = ref('')
 	const filters = useStorage<LibraryFilters>(
@@ -1174,6 +1176,11 @@ function createLibraryState(instances: Ref<GameInstance[]>) {
 					? 'remove_from_favorites'
 					: 'add_to_favorites',
 			},
+			{
+				name: isPinned('instance', item.instance.id)
+					? 'unpin_from_sidebar'
+					: 'pin_to_sidebar',
+			},
 			{ type: 'divider' },
 			...(!item.instance.quarantined && !item.instance.link
 				? [{ name: 'add_content' }, { type: 'divider' }]
@@ -1230,6 +1237,12 @@ function createLibraryState(instances: Ref<GameInstance[]>) {
 						(instanceGroupId) => instanceGroupId !== FAVORITES_GROUP_ID,
 					),
 				}).catch((error) => handleError(toError(error)))
+				break
+			case 'pin_to_sidebar':
+			case 'unpin_from_sidebar':
+				await togglePinnedItem('instance', item.instance.id).catch((error) =>
+					handleError(toError(error)),
+				)
 				break
 			case 'edit':
 				await item.seeInstance()

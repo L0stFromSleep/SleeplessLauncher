@@ -19,6 +19,109 @@
 		<div
 			class="flex border-solid border-surface-5 text-sm items-center gap-2 py-1.5 px-3 rounded-xl border"
 		>
+			<template v-if="selectedServer">
+				<OnlineIndicatorIcon />
+				<div class="text-contrast flex items-center gap-2">
+					<router-link
+						v-tooltip="formatMessage(messages.viewServer)"
+						:to="`/host/${encodeURIComponent(selectedServer.id)}`"
+						class="hover:underline"
+					>
+						{{ selectedServer.name }}
+					</router-link>
+					<Dropdown
+						v-if="runningServers.length > 1"
+						placement="bottom"
+						:triggers="['click']"
+						:hide-triggers="['click']"
+						@show="showServers = true"
+						@hide="showServers = false"
+					>
+						<IconButton
+							v-tooltip="
+								showServers
+									? formatMessage(messages.hideMoreRunningServers)
+									: formatMessage(messages.showMoreRunningServers)
+							"
+							class="!size-6"
+							type="quiet"
+							size="xs"
+							:label="
+								showServers
+									? formatMessage(messages.hideMoreRunningServers)
+									: formatMessage(messages.showMoreRunningServers)
+							"
+						>
+							<DropdownIcon :class="{ 'rotate-180': !!showServers }" />
+						</IconButton>
+						<template #popper>
+							<div class="flex w-[20rem] max-h-[24rem] flex-col gap-2 overflow-auto">
+								<div
+									v-for="server in runningServers"
+									:key="server.id"
+									class="flex w-full items-center gap-2 rounded-xl bg-surface-4 p-2 text-sm"
+								>
+									<button
+										v-tooltip.left="
+											server.id === selectedServer.id
+												? formatMessage(messages.primaryServer)
+												: formatMessage(messages.makePrimaryServer)
+										"
+										class="flex flex-grow items-center gap-2"
+										:class="{
+											'active:scale-95 transition-transform': server.id !== selectedServer.id,
+										}"
+										:disabled="server.id === selectedServer.id"
+										@click="selectServer(server)"
+									>
+										<OnlineIndicatorIcon />
+										<span class="mr-auto text-contrast flex items-center gap-2">
+											{{ server.name }}
+											<StarIcon v-if="server.id === selectedServer.id" class="text-orange" />
+										</span>
+									</button>
+									<button
+										v-tooltip="formatMessage(messages.stopServer)"
+										class="active:scale-95 flex"
+										@click.stop="stopServer(server)"
+									>
+										<StopCircleIcon class="text-red size-5" />
+									</button>
+									<button
+										v-tooltip="formatMessage(messages.viewConsole)"
+										class="active:scale-95 flex"
+										@click.stop="goToServerConsole(server.id)"
+									>
+										<TerminalSquareIcon class="text-secondary size-5" />
+									</button>
+								</div>
+							</div>
+						</template>
+					</Dropdown>
+				</div>
+				<button
+					v-tooltip="formatMessage(messages.stopServer)"
+					class="active:scale-95 flex"
+					@click="stopServer(selectedServer)"
+				>
+					<StopCircleIcon class="text-red size-5" />
+				</button>
+				<button
+					v-tooltip="formatMessage(messages.viewConsole)"
+					class="active:scale-95 flex"
+					@click="goToServerConsole()"
+				>
+					<TerminalSquareIcon class="text-secondary size-5" />
+				</button>
+			</template>
+			<template v-else>
+				<span class="size-2 rounded-full bg-secondary" />
+				<span class="text-secondary"> {{ formatMessage(messages.noServersRunning) }} </span>
+			</template>
+		</div>
+		<div
+			class="flex border-solid border-surface-5 text-sm items-center gap-2 py-1.5 px-3 rounded-xl border"
+		>
 			<template v-if="selectedProcess">
 				<OnlineIndicatorIcon />
 				<div class="text-contrast flex items-center gap-2">
@@ -151,6 +254,8 @@ import { useInstallJobNotifications } from '@/composables/browse/install-job-not
 import { useAppEvent } from '@/composables/use-app-event'
 import { trackEvent } from '@/helpers/analytics'
 import { toError } from '@/helpers/errors'
+import * as hosting from '@/helpers/hosting'
+import type { HostedServer } from '@/helpers/hosting'
 import { get_many as getInstances } from '@/helpers/instance'
 import { get_all as getRunningProcesses, kill as killProcess } from '@/helpers/process'
 import type { LoadingBar } from '@/helpers/state'
@@ -164,6 +269,7 @@ const { formatMessage } = useVIntl()
 const router = useRouter()
 
 const showInstances = ref(false)
+const showServers = ref(false)
 
 interface RunningProcess {
 	uuid: string
@@ -207,6 +313,38 @@ const messages = defineMessages({
 	noInstancesRunning: {
 		id: 'app.action-bar.no-instances-running',
 		defaultMessage: 'No instances running',
+	},
+	viewServer: {
+		id: 'app.action-bar.view-server',
+		defaultMessage: 'View server',
+	},
+	showMoreRunningServers: {
+		id: 'app.action-bar.show-more-running-servers',
+		defaultMessage: 'Show more running servers',
+	},
+	hideMoreRunningServers: {
+		id: 'app.action-bar.hide-more-running-servers',
+		defaultMessage: 'Hide more running servers',
+	},
+	primaryServer: {
+		id: 'app.action-bar.primary-server',
+		defaultMessage: 'Primary server',
+	},
+	makePrimaryServer: {
+		id: 'app.action-bar.make-primary-server',
+		defaultMessage: 'Make primary server',
+	},
+	stopServer: {
+		id: 'app.action-bar.stop-server',
+		defaultMessage: 'Stop server',
+	},
+	viewConsole: {
+		id: 'app.action-bar.view-console',
+		defaultMessage: 'View console',
+	},
+	noServersRunning: {
+		id: 'app.action-bar.no-servers-running',
+		defaultMessage: 'No servers running',
 	},
 	downloadingJava: {
 		id: 'app.action-bar.downloading-java',
@@ -282,6 +420,30 @@ const refresh = async () => {
 
 await refresh()
 
+const runningServers = ref<HostedServer[]>([])
+const selectedServer = ref<HostedServer | undefined>()
+
+const refreshServers = async () => {
+	const servers = await hosting.list().catch((error) => {
+		handleError(error)
+		return []
+	})
+	const runningFlags = await Promise.all(
+		servers.map((server) => hosting.isRunning(server.id).catch(() => false)),
+	)
+	runningServers.value = servers.filter((_, index) => runningFlags[index])
+	if (
+		!selectedServer.value ||
+		!runningServers.value.some((s) => s.id === selectedServer.value?.id)
+	) {
+		selectedServer.value = runningServers.value[0]
+	}
+}
+
+await refreshServers()
+
+let serverPollHandle: ReturnType<typeof setInterval> | null = null
+
 const offline = ref(!navigator.onLine)
 function handleOffline() {
 	offline.value = true
@@ -293,11 +455,33 @@ function handleOnline() {
 onMounted(() => {
 	window.addEventListener('offline', handleOffline)
 	window.addEventListener('online', handleOnline)
+	serverPollHandle = setInterval(refreshServers, 2000)
 })
 
 useAppEvent('process', async () => {
 	await refresh()
 })
+
+function selectServer(server: HostedServer) {
+	selectedServer.value = server
+}
+
+const stopServer = async (server: HostedServer) => {
+	try {
+		await hosting.stop(server.id).catch(handleError)
+	} catch (e) {
+		console.error(e)
+	}
+	await refreshServers()
+}
+
+function goToServerConsole(serverId?: string) {
+	const selectedServerId = serverId ?? selectedServer.value?.id
+	if (!selectedServerId) {
+		return
+	}
+	router.push(`/host/${encodeURIComponent(selectedServerId)}`)
+}
 
 const stop = async (process: RunningProcess) => {
 	try {
@@ -583,6 +767,7 @@ onBeforeUnmount(() => {
 	dismissed.value = false
 	window.removeEventListener('offline', handleOffline)
 	window.removeEventListener('online', handleOnline)
+	if (serverPollHandle) clearInterval(serverPollHandle)
 	installJobNotifications.dispose()
 })
 </script>

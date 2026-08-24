@@ -287,6 +287,18 @@ pub(crate) async fn install_zipped_curseforge_pack_with_reporter(
         resolved_files.extend(files.into_iter().map(|file| (file.id, file)));
     }
 
+    // Prefer a Modrinth-hosted copy of each mod when one is an exact match
+    // (name, author, and version) -- see
+    // `state::curseforge::modrinth_equivalent` for why.
+    let modrinth_equivalents = {
+        let files = resolved_files.values().cloned().collect::<Vec<_>>();
+        crate::state::curseforge::modrinth_equivalent::find_exact_matches_for_files(
+            &files, state,
+        )
+        .await
+        .unwrap_or_default()
+    };
+
     let num_files = manifest.files.len();
     let content_total_bytes = manifest
         .files
@@ -315,6 +327,7 @@ pub(crate) async fn install_zipped_curseforge_pack_with_reporter(
         )
         .await?;
 
+    let modrinth_equivalents = Arc::new(modrinth_equivalents);
     let content_context = CfContentInstallContext {
         instance_id: instance_id.clone(),
         instance_path: instance_path.clone(),
@@ -341,6 +354,8 @@ pub(crate) async fn install_zipped_curseforge_pack_with_reporter(
         |entry| {
             let content_context = content_context.clone();
             let resolved = resolved_files.get(&entry.file_id).cloned();
+            let modrinth_replacement =
+                modrinth_equivalents.get(&entry.file_id).cloned();
             async move {
                 let Some(cf_file) = resolved else {
                     content_context
@@ -354,25 +369,51 @@ pub(crate) async fn install_zipped_curseforge_pack_with_reporter(
                         .await?;
                     return Ok(());
                 };
-                let Some(download_url) = cf_file.download_url.clone() else {
-                    content_context
-                        .mark_downloaded(
-                            cf_file.file_length,
-                            InstallJobEventKind::ContentFileSkipped {
-                                path: format!("mods/{}", cf_file.file_name),
-                                reason:
-                                    "author disabled third-party downloads"
-                                        .to_string(),
-                            },
-                        )
-                        .await?;
-                    return Ok(());
-                };
 
-                let project_path = format!("mods/{}", cf_file.file_name);
+                // Prefer an exact Modrinth equivalent when one was found --
+                // downloads directly from Modrinth instead of CurseForge,
+                // and sidesteps CurseForge's "third-party downloads
+                // disabled" restriction some authors set.
+                let (download_url, file_name, file_length, sha1, provider, provider_project_id, provider_version_id) =
+                    if let Some(replacement) = &modrinth_replacement {
+                        (
+                            replacement.url.clone(),
+                            replacement.filename.clone(),
+                            replacement.file_length,
+                            replacement.sha1.clone(),
+                            ContentProvider::Modrinth,
+                            replacement.project_id.clone(),
+                            replacement.version_id.clone(),
+                        )
+                    } else {
+                        let Some(download_url) = cf_file.download_url.clone() else {
+                            content_context
+                                .mark_downloaded(
+                                    cf_file.file_length,
+                                    InstallJobEventKind::ContentFileSkipped {
+                                        path: format!("mods/{}", cf_file.file_name),
+                                        reason:
+                                            "author disabled third-party downloads"
+                                                .to_string(),
+                                    },
+                                )
+                                .await?;
+                            return Ok(());
+                        };
+                        (
+                            download_url,
+                            cf_file.file_name.clone(),
+                            cf_file.file_length,
+                            cf_file.sha1(),
+                            ContentProvider::CurseForge,
+                            cf_file.mod_id.to_string(),
+                            cf_file.id.to_string(),
+                        )
+                    };
+
+                let project_path = format!("mods/{}", file_name);
                 let target_path =
                     content_context.instance_full_path.join(&project_path);
-                let sha1 = cf_file.sha1();
 
                 let error_context =
                     InstallErrorContext::new("download modpack content file")
@@ -382,7 +423,7 @@ pub(crate) async fn install_zipped_curseforge_pack_with_reporter(
                         .target_path(target_path.display().to_string())
                         .urls(vec![download_url.clone()])
                         .maybe_expected_hash(sha1.clone())
-                        .expected_size(cf_file.file_length)
+                        .expected_size(file_length)
                         .build();
                 content_context
                     .reporter
@@ -454,9 +495,9 @@ pub(crate) async fn install_zipped_curseforge_pack_with_reporter(
                                     downloaded_bytes,
                                     ProjectType::Mod,
                                     ContentSourceKind::CurseForgeModpack,
-                                    ContentProvider::CurseForge,
-                                    Some(&cf_file.mod_id.to_string()),
-                                    Some(&cf_file.id.to_string()),
+                                    provider,
+                                    Some(&provider_project_id),
+                                    Some(&provider_version_id),
                                     state,
                                 )
                                 .await,

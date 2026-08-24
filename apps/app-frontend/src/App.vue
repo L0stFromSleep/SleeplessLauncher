@@ -212,7 +212,12 @@ const forceSidebar = computed(
 		route.path.startsWith('/user'),
 )
 const sidebarVisible = computed(() => sidebarToggled.value || forceSidebar.value)
-const hostingRouteActive = computed(() => route.path.startsWith('/hosting'))
+// The paid Modrinth Hosting UI (and its Intercom support-chat widget /
+// forced-update banner, both tied to that remote billing flow) has been
+// replaced by the local self-hosted server page at /host -- neither applies
+// there, so this now never activates rather than tracing out every
+// downstream consumer of it.
+const hostingRouteActive = computed(() => false)
 const hostingUpdateRequired = computed(
 	() =>
 		hostingRouteActive.value &&
@@ -526,8 +531,8 @@ const messages = defineMessages({
 		defaultMessage: 'Home',
 	},
 	modrinthHosting: {
-		id: 'app.nav.modrinth-hosting',
-		defaultMessage: 'Modrinth Hosting',
+		id: 'app.nav.host',
+		defaultMessage: 'Host',
 	},
 	createNewInstance: {
 		id: 'app.nav.create-new-instance',
@@ -1754,13 +1759,9 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 			</NavButton>
 			<NavButton
 				v-tooltip.right="formatMessage(messages.modrinthHosting)"
-				to="/hosting/manage"
-				:is-primary="(r) => r.path === '/hosting/manage' || r.path === '/hosting/manage/'"
-				:is-subpage="
-					(r) =>
-						(r.path.startsWith('/hosting/manage/') && r.path !== '/hosting/manage/') ||
-						((r.path.startsWith('/browse') || r.path.startsWith('/project')) && r.query.sid)
-				"
+				to="/host"
+				:is-primary="(r) => r.path === '/host' || r.path === '/host/'"
+				:is-subpage="(r) => r.path.startsWith('/host/')"
 			>
 				<ServerStackIcon />
 			</NavButton>

@@ -28,6 +28,7 @@ import DropdownFilterBar from '#ui/components/base/DropdownFilterBar.vue'
 import EmptyState from '#ui/components/base/EmptyState.vue'
 import FilterPills from '#ui/components/base/FilterPills.vue'
 import StyledInput from '#ui/components/base/StyledInput.vue'
+import TagIcon from '#ui/components/base/TagIcon.vue'
 import { useDebugLogger } from '#ui/composables/debug-logger'
 import { defineMessages, useVIntl } from '#ui/composables/i18n'
 import { commonMessages, formatContentTypeSentence } from '#ui/utils/common-messages'
@@ -89,6 +90,14 @@ const messages = defineMessages({
 	browseContent: {
 		id: 'content.page-layout.browse-content',
 		defaultMessage: 'Browse content',
+	},
+	sourceModrinth: {
+		id: 'content.page-layout.source-modrinth',
+		defaultMessage: 'From Modrinth',
+	},
+	sourceCurseForge: {
+		id: 'content.page-layout.source-curseforge',
+		defaultMessage: 'From CurseForge',
 	},
 	uploadFiles: {
 		id: 'content.page-layout.upload-files',
@@ -177,6 +186,20 @@ const skipNonEssentialWarnings = computed(() => ctx.skipNonEssentialWarnings?.va
 
 function getItemId(item: ContentItem) {
 	return ctx.getItemId?.(item) ?? item.file_path ?? item.file_name ?? item.id
+}
+
+// CurseForge-sourced content items carry CurseForge's numeric mod id as their
+// project id -- there's no Modrinth project with a purely numeric id, so this
+// is a reliable way to tell the two sources apart without threading a
+// separate "provider" field through every layer of the table item mapping.
+// `external` items have no real resolved project at all (mapToTableItem
+// fills in a synthetic id from the file name for display purposes), so they
+// must be excluded here or unresolved "Uploaded" files would get a bogus
+// Modrinth badge just for not looking numeric.
+function contentSourceTag(item: ContentCardTableItem): 'curseforge' | 'modrinth' | null {
+	const id = item.project?.id
+	if (!id || item.external) return null
+	return /^\d+$/.test(id) ? 'curseforge' : 'modrinth'
 }
 
 type SortMode = 'alphabetical-asc' | 'alphabetical-desc' | 'date-added-newest' | 'date-added-oldest'
@@ -1226,6 +1249,26 @@ const confirmUnlinkModal = ref<InstanceType<typeof ConfirmUnlinkModal>>()
 						>
 							<template #empty>
 								<span>{{ formatMessage(messages.noContentFound) }}</span>
+							</template>
+							<template #itemTitleBadges="{ item }">
+								<span
+									v-if="contentSourceTag(item)"
+									v-tooltip="
+										formatMessage(
+											contentSourceTag(item) === 'curseforge'
+												? messages.sourceCurseForge
+												: messages.sourceModrinth,
+										)
+									"
+									class="inline-flex size-4 shrink-0 items-center justify-center"
+									tabindex="0"
+								>
+									<TagIcon
+										:tag="contentSourceTag(item)!"
+										enforce-type="loader"
+										class="pointer-events-none size-4"
+									/>
+								</span>
 							</template>
 						</ContentCardTable>
 					</div>

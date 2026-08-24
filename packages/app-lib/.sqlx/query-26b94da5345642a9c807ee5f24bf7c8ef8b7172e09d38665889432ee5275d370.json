@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            UPDATE hosted_servers\n            SET port = $2, max_memory_mb = $3, extra_java_args = $4, modified = $5\n            WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "26b94da5345642a9c807ee5f24bf7c8ef8b7172e09d38665889432ee5275d370"
+}

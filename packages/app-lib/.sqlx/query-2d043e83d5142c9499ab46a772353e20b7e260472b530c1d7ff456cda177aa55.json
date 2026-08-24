@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT kind, ref_id, position FROM pinned_items ORDER BY position ASC",
+  "describe": {
+    "columns": [
+      {
+        "name": "kind",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "ref_id",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "position",
+        "ordinal": 2,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "2d043e83d5142c9499ab46a772353e20b7e260472b530c1d7ff456cda177aa55"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM pinned_items WHERE kind = ? AND ref_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "b8a36618d3becd8cb27dc6d6cd6719bb9303536e1268319b2e62cf55d7894074"
+}
