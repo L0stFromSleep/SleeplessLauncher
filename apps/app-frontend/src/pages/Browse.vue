@@ -1107,6 +1107,52 @@ function getCurseForgeModpackCardActions(
 	]
 }
 
+// Mirrors the loader-alias handling in modrinth-content-management's version
+// resolver (packages/modrinth-content-management/src/install.rs) so a
+// client-side CurseForge file pick agrees with what the backend resolver
+// would choose for an instance install.
+const CURSEFORGE_LOADER_ALIAS_GROUPS = [['neoforge', 'neo']]
+
+function normalizeCfLoaderAlias(loader: string): string {
+	return loader.toLowerCase().replaceAll('_', '').replaceAll('-', '').replaceAll(' ', '')
+}
+
+function cfLoaderAliases(loader: string): Set<string> {
+	const normalized = normalizeCfLoaderAlias(loader)
+	const aliases = new Set([normalized])
+	const group = CURSEFORGE_LOADER_ALIAS_GROUPS.find((g) => g.includes(normalized))
+	if (group) {
+		for (const alias of group) aliases.add(alias)
+	}
+	return aliases
+}
+
+function cfFileMatchesTarget(file: CfFile, gameVersion: string, loader: string): boolean {
+	const tags = file.gameVersions.map((v) => v.toLowerCase())
+	if (!tags.includes(gameVersion.toLowerCase())) return false
+	const aliases = cfLoaderAliases(loader)
+	return tags.some((tag) => aliases.has(normalizeCfLoaderAlias(tag)))
+}
+
+// Only used for the hosted-server install path, which (unlike installing
+// into a client instance) has no backend resolver to fall back on --
+// hosting_install_curseforge_file just downloads whatever file id it's
+// given. mod.latestFiles is CurseForge's own unsorted "one recent file per
+// loader/version" summary, so pick the file actually matching the server's
+// loader/game version from the full file list instead of grabbing
+// latestFiles[0], which can easily be for a different loader/MC version.
+async function pickCurseForgeFileForHostedServer(mod: CfMod, fallback: CfFile): Promise<CfFile> {
+	const gameVersion = hostedServer.value?.game_version
+	const loader = hostedServer.value?.loader
+	if (!gameVersion || !loader) return fallback
+	try {
+		const files = await curseforge.getModFiles(mod.id.toString())
+		return files.find((file) => cfFileMatchesTarget(file, gameVersion, loader)) ?? fallback
+	} catch {
+		return fallback
+	}
+}
+
 function getCurseForgeCardActions(
 	result: Labrinth.Search.v3.ResultSearchProject & CurseForgeTaggedHit,
 	currentProjectType: string,
@@ -1157,11 +1203,18 @@ function getCurseForgeCardActions(
 				curseforgeInstalling.value = new Set([...curseforgeInstalling.value, result.project_id])
 				try {
 					if (isHostContentContext.value) {
-						await installCurseForgeFileToHostedServer(file.id.toString(), currentProjectType)
+						const target = await pickCurseForgeFileForHostedServer(mod, file)
+						await installCurseForgeFileToHostedServer(target.id.toString(), currentProjectType)
 					} else if (instance.value) {
+						// Leave file_id unset so the backend resolver picks the file
+						// matching this instance's game version and mod loader,
+						// instead of blindly installing latestFiles[0] (CurseForge's
+						// own summary list, which is not filtered for the current
+						// instance at all -- e.g. a mod's Forge 1.12.2 file can sort
+						// before its NeoForge 1.20.1 file).
 						await install_curseforge_project_with_dependencies(instance.value.id, {
 							mod_id: mod.id.toString(),
-							file_id: file.id.toString(),
+							file_id: null,
 							content_type: currentProjectType as Labrinth.Content.v3.ContentType,
 						})
 					}
@@ -1462,17 +1515,28 @@ function normalizeForMerge(value: string): string {
 	return value.trim().toLowerCase()
 }
 
-// Same mod name + same author, case-insensitively, is treated as "the same
-// mod" across providers. Author is checked too since a generic mod name
-// ("Storage") published by unrelated authors on each platform shouldn't be
-// folded together.
-function providerMergeKey(name: string, author: string): string {
-	return `${normalizeForMerge(name)}::${normalizeForMerge(author)}`
+// Modrinth's `author` field on a search hit is the project owner's
+// *username*; CurseForge's is whatever *display name* they registered with
+// on that platform. These are frequently different strings for the exact
+// same person/mod (e.g. a Modrinth handle vs. a CurseForge display name), so
+// requiring an exact match here was silently preventing almost every real
+// merge. Treat them as "the same author" if they match after normalizing,
+// or either one contains the other.
+function authorsLooselyMatch(a: string, b: string): boolean {
+	const na = normalizeForMerge(a)
+	const nb = normalizeForMerge(b)
+	if (!na || !nb) return false
+	return na === nb || na.includes(nb) || nb.includes(na)
 }
 
-// Folds CurseForge hits into their Modrinth twin (same name+author) so the
-// grid shows one merged card instead of two duplicate entries. Modpacks are
-// excluded: they create a whole new instance on install via
+// Folds CurseForge hits into their Modrinth twin so the grid shows one
+// merged card instead of two duplicate entries for the same mod. Matching is
+// name-first: the same mod name on both platforms is already a strong
+// signal by itself. Author is only consulted to disambiguate when more than
+// one CurseForge hit shares that exact name (a generic name like "Storage"
+// published independently by unrelated authors on each platform) -- if it
+// can't be disambiguated, no merge happens rather than guessing wrong.
+// Modpacks are excluded: they create a whole new instance on install via
 // provider-specific pipelines (install_create_modpack_instance vs.
 // install_create_instance) that can't share a single fallback path the way
 // mod/resourcepack/datapack/shader installs into an existing instance can.
@@ -1488,18 +1552,29 @@ function mergeProviderHits(
 		return { mergedModrinthHits: modrinthHits, remainingCurseForgeHits: curseforgeHits }
 	}
 
-	const curseforgeByKey = new Map<string, (typeof curseforgeHits)[number]>()
+	const curseforgeByName = new Map<string, (typeof curseforgeHits)[number][]>()
 	for (const cfHit of curseforgeHits) {
-		const key = providerMergeKey(cfHit.name, cfHit.author)
-		if (!curseforgeByKey.has(key)) curseforgeByKey.set(key, cfHit)
+		const key = normalizeForMerge(cfHit.name)
+		const list = curseforgeByName.get(key)
+		if (list) {
+			list.push(cfHit)
+		} else {
+			curseforgeByName.set(key, [cfHit])
+		}
 	}
 
-	const usedKeys = new Set<string>()
+	const usedCurseForgeIds = new Set<number>()
 	const mergedModrinthHits = modrinthHits.map((hit) => {
-		const key = providerMergeKey(hit.name, hit.author)
-		const cfMatch = curseforgeByKey.get(key)
+		const candidates = curseforgeByName.get(normalizeForMerge(hit.name))
+		if (!candidates || candidates.length === 0) return hit
+
+		const cfMatch =
+			candidates.length === 1
+				? candidates[0]
+				: candidates.find((candidate) => authorsLooselyMatch(hit.author, candidate.author))
 		if (!cfMatch) return hit
-		usedKeys.add(key)
+
+		usedCurseForgeIds.add(cfMatch.__curseforge.id)
 		const merged: Labrinth.Search.v3.ResultSearchProject & CurseForgeFallbackHit = {
 			...hit,
 			__curseforgeFallback: cfMatch.__curseforge,
@@ -1508,7 +1583,7 @@ function mergeProviderHits(
 	})
 
 	const remainingCurseForgeHits = curseforgeHits.filter(
-		(cfHit) => !usedKeys.has(providerMergeKey(cfHit.name, cfHit.author)),
+		(cfHit) => !usedCurseForgeIds.has(cfHit.__curseforge.id),
 	)
 
 	return { mergedModrinthHits, remainingCurseForgeHits }

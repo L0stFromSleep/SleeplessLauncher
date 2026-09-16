@@ -29,23 +29,22 @@ function main() {
 
 	const frontendPkgPath = join(REPO_ROOT, 'apps/app-frontend/package.json')
 	const frontendPkg = fs.readFileSync(frontendPkgPath, 'utf8')
-	const updatedFrontendPkg = frontendPkg.replace(
-		/^(\t"version":\s*")[^"]*(")/m,
-		`$1${version}$2`,
-	)
-	if (updatedFrontendPkg === frontendPkg) {
+	const frontendVersionPattern = /^(\t"version":\s*")[^"]*(")/m
+	if (!frontendVersionPattern.test(frontendPkg)) {
 		console.error(`Could not find a "version" field to update in ${frontendPkgPath}`)
 		process.exit(1)
 	}
+	const updatedFrontendPkg = frontendPkg.replace(frontendVersionPattern, `$1${version}$2`)
 	fs.writeFileSync(frontendPkgPath, updatedFrontendPkg, 'utf8')
 
 	const cargoTomlPath = join(REPO_ROOT, 'apps/app/Cargo.toml')
 	const cargoToml = fs.readFileSync(cargoTomlPath, 'utf8')
-	const updatedCargoToml = cargoToml.replace(/^version = "[^"]*"/m, `version = "${version}"`)
-	if (updatedCargoToml === cargoToml) {
+	const cargoVersionPattern = /^version = "[^"]*"/m
+	if (!cargoVersionPattern.test(cargoToml)) {
 		console.error(`Could not find a "version" field to update in ${cargoTomlPath}`)
 		process.exit(1)
 	}
+	const updatedCargoToml = cargoToml.replace(cargoVersionPattern, `version = "${version}"`)
 	fs.writeFileSync(cargoTomlPath, updatedCargoToml, 'utf8')
 
 	console.log(`Bumped app version to ${version}`)
