@@ -1005,6 +1005,27 @@ async function installCurseForgeFileToHostedServer(fileId: string, currentProjec
 	await hosting.installCurseForgeFile(hostedServerId.value, contentDir, fileId)
 }
 
+// Used only as a fallback for a merged provider entry (see mergeProviderHits)
+// when installing its Modrinth version actually threw. Leaves file_id unset
+// so the backend resolver picks the file matching the instance's loader and
+// game version, rather than blindly installing CurseForge's own
+// unsorted/unfiltered `latestFiles[0]`.
+async function installCurseForgeFallback(mod: CfMod, currentProjectType: string) {
+	if (mod.allowModDistribution === false) {
+		throw new Error(
+			`The author of "${mod.name}" has disabled third-party downloads for this mod on CurseForge.`,
+		)
+	}
+	if (!instance.value) {
+		throw new Error(`No instance to install "${mod.name}" into`)
+	}
+	await install_curseforge_project_with_dependencies(instance.value.id, {
+		mod_id: mod.id.toString(),
+		file_id: null,
+		content_type: currentProjectType as Labrinth.Content.v3.ContentType,
+	})
+}
+
 const curseforgeInstalling = ref<Set<string>>(new Set())
 const curseforgeInstalled = ref<Set<string>>(new Set())
 
@@ -1363,6 +1384,27 @@ function getCardActions(
 						},
 					)
 				} catch (err) {
+					if (
+						instance.value &&
+						!isHostPickerContext.value &&
+						!isHostContentContext.value &&
+						!isModpack &&
+						hasCurseForgeFallback(projectResult)
+					) {
+						try {
+							await installCurseForgeFallback(
+								projectResult.__curseforgeFallback,
+								currentProjectType,
+							)
+							onSearchResultInstalled(projectResult.project_id)
+						} catch (fallbackErr) {
+							handleError(fallbackErr as Error)
+						} finally {
+							setProjectInstalling(projectResult.project_id, false)
+						}
+						return
+					}
+
 					setProjectInstalling(projectResult.project_id, false)
 					handleError(err)
 				}
@@ -1399,6 +1441,77 @@ function isCurseForgeHit(
 	result: Labrinth.Search.v3.ResultSearchProject,
 ): result is Labrinth.Search.v3.ResultSearchProject & CurseForgeTaggedHit {
 	return !!result.project_id?.startsWith('curseforge:')
+}
+
+// Attached to a Modrinth hit when a CurseForge mod with the same name+author
+// was found and folded into it (see mergeProviderHits below), so the browse
+// grid shows one card instead of two duplicate entries for the same mod.
+// Installing that card still installs the Modrinth version first; this is
+// only consulted as a fallback if the Modrinth install actually fails.
+interface CurseForgeFallbackHit {
+	__curseforgeFallback: CfMod
+}
+
+function hasCurseForgeFallback(
+	result: Labrinth.Search.v3.ResultSearchProject,
+): result is Labrinth.Search.v3.ResultSearchProject & CurseForgeFallbackHit {
+	return !!(result as Partial<CurseForgeFallbackHit>).__curseforgeFallback
+}
+
+function normalizeForMerge(value: string): string {
+	return value.trim().toLowerCase()
+}
+
+// Same mod name + same author, case-insensitively, is treated as "the same
+// mod" across providers. Author is checked too since a generic mod name
+// ("Storage") published by unrelated authors on each platform shouldn't be
+// folded together.
+function providerMergeKey(name: string, author: string): string {
+	return `${normalizeForMerge(name)}::${normalizeForMerge(author)}`
+}
+
+// Folds CurseForge hits into their Modrinth twin (same name+author) so the
+// grid shows one merged card instead of two duplicate entries. Modpacks are
+// excluded: they create a whole new instance on install via
+// provider-specific pipelines (install_create_modpack_instance vs.
+// install_create_instance) that can't share a single fallback path the way
+// mod/resourcepack/datapack/shader installs into an existing instance can.
+function mergeProviderHits(
+	modrinthHits: Labrinth.Search.v3.ResultSearchProject[],
+	curseforgeHits: (Labrinth.Search.v3.ResultSearchProject & CurseForgeTaggedHit)[],
+	projectTypeValue: string,
+): {
+	mergedModrinthHits: Labrinth.Search.v3.ResultSearchProject[]
+	remainingCurseForgeHits: (Labrinth.Search.v3.ResultSearchProject & CurseForgeTaggedHit)[]
+} {
+	if (projectTypeValue === 'modpack' || curseforgeHits.length === 0) {
+		return { mergedModrinthHits: modrinthHits, remainingCurseForgeHits: curseforgeHits }
+	}
+
+	const curseforgeByKey = new Map<string, (typeof curseforgeHits)[number]>()
+	for (const cfHit of curseforgeHits) {
+		const key = providerMergeKey(cfHit.name, cfHit.author)
+		if (!curseforgeByKey.has(key)) curseforgeByKey.set(key, cfHit)
+	}
+
+	const usedKeys = new Set<string>()
+	const mergedModrinthHits = modrinthHits.map((hit) => {
+		const key = providerMergeKey(hit.name, hit.author)
+		const cfMatch = curseforgeByKey.get(key)
+		if (!cfMatch) return hit
+		usedKeys.add(key)
+		const merged: Labrinth.Search.v3.ResultSearchProject & CurseForgeFallbackHit = {
+			...hit,
+			__curseforgeFallback: cfMatch.__curseforge,
+		}
+		return merged
+	})
+
+	const remainingCurseForgeHits = curseforgeHits.filter(
+		(cfHit) => !usedKeys.has(providerMergeKey(cfHit.name, cfHit.author)),
+	)
+
+	return { mergedModrinthHits, remainingCurseForgeHits }
 }
 
 // CurseForge's gameVersions array mixes Minecraft version numbers, loader
@@ -1678,7 +1791,13 @@ async function search(requestParams: string) {
 		return mapped
 	})
 
-	const combinedHits = [...hits, ...curseforgeHits]
+	const { mergedModrinthHits, remainingCurseForgeHits } = mergeProviderHits(
+		hits,
+		curseforgeHits,
+		projectType.value,
+	)
+
+	const combinedHits = [...mergedModrinthHits, ...remainingCurseForgeHits]
 		.filter((hit) => {
 			const provider = isCurseForgeHit(hit) ? 'curseforge' : 'modrinth'
 			return selectedProviders().has(provider)
@@ -1688,7 +1807,7 @@ async function search(requestParams: string) {
 	return {
 		projectHits: combinedHits,
 		serverHits: [],
-		total_hits: rawResults.result.total_hits + curseforgeHits.length,
+		total_hits: rawResults.result.total_hits + remainingCurseForgeHits.length,
 		per_page: rawResults.result.hits_per_page,
 	}
 }

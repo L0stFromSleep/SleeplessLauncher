@@ -233,6 +233,7 @@ pub async fn switch_project_version_with_dependencies(
     instance_id: &str,
     project_path: &str,
     version_id: &str,
+    provider: Option<ContentProvider>,
 ) -> crate::Result<String> {
     let state = State::get().await?;
     ensure_shared_instance_can_modify_project(
@@ -250,6 +251,7 @@ pub async fn switch_project_version_with_dependencies(
             instance_id,
             project_path,
             version_id,
+            provider.unwrap_or(ContentProvider::Modrinth),
             &state,
         )
         .await?;

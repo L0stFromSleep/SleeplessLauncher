@@ -130,6 +130,8 @@ import { useAppEvent } from '@/composables/use-app-event'
 import { type FeatureFlag, useAppSettings } from '@/composables/use-app-settings.ts'
 import { trackEvent } from '@/helpers/analytics'
 import { get_project_versions, get_version, get_version_many } from '@/helpers/cache.js'
+import type { CfFile } from '@/helpers/curseforge.ts'
+import * as curseforge from '@/helpers/curseforge.ts'
 import {
 	add_project_from_path,
 	edit,
@@ -238,6 +240,51 @@ function contentOwnerLink(owner: ContentOwner): NonNullable<ContentOwner['link']
 // project.id (there's no Modrinth project with a purely numeric id).
 function isCurseForgeProjectId(id: string): boolean {
 	return /^\d+$/.test(id)
+}
+
+function isCurseForgeItem(item: ContentItem): boolean {
+	if (item.provider) return item.provider === 'curseforge'
+	return !!item.project?.id && isCurseForgeProjectId(item.project.id)
+}
+
+const CURSEFORGE_LOADER_TAGS = new Set([
+	'forge',
+	'fabric',
+	'quilt',
+	'neoforge',
+	'rift',
+	'liteloader',
+	'cauldron',
+])
+
+// Mirrors `file_to_resolver_version` in
+// `packages/app-lib/src/state/curseforge/provider.rs`, mapping a CurseForge
+// file into the shape the version updater/switcher modal expects.
+function cfFileToVersion(file: CfFile): Labrinth.Versions.v2.Version {
+	const gameVersions: string[] = []
+	const loaders: string[] = []
+	for (const entry of file.gameVersions) {
+		const lower = entry.toLowerCase()
+		if (CURSEFORGE_LOADER_TAGS.has(lower)) {
+			loaders.push(lower)
+		} else if (lower !== 'client' && lower !== 'server') {
+			gameVersions.push(entry)
+		}
+	}
+
+	return {
+		id: file.id.toString(),
+		project_id: file.modId.toString(),
+		name: file.displayName || file.fileName,
+		version_number: file.displayName || file.fileName,
+		version_type: 'release',
+		date_published: file.fileDate,
+		changelog: '',
+		loaders,
+		game_versions: gameVersions,
+		files: [],
+		dependencies: [],
+	} as unknown as Labrinth.Versions.v2.Version
 }
 
 const { formatMessage } = useVIntl()
@@ -674,7 +721,19 @@ function mergeVersionIntoList(
 	return sortVersionsByPublishedDate(mergedVersions)
 }
 
-async function getUpdaterProjectVersions(projectId: string, pinnedVersionId?: string) {
+async function getUpdaterProjectVersions(
+	projectId: string,
+	pinnedVersionId?: string,
+	useCurseForge?: boolean,
+) {
+	if (useCurseForge) {
+		const files = await curseforge.getModFiles(projectId).catch((err) => {
+			handleError(err as Error)
+			return [] as CfFile[]
+		})
+		return sortVersionsByPublishedDate(files.map(cfFileToVersion))
+	}
+
 	let fetchError: unknown = null
 	let versions = (await get_project_versions(projectId, 'bypass').catch((err) => {
 		fetchError = err
@@ -1002,6 +1061,7 @@ async function updateProject(mod: ContentItem) {
 			instance.value.id,
 			mod.file_path,
 			updateVersionId,
+			isCurseForgeItem(mod) ? 'curseforge' : 'modrinth',
 		)
 
 		trackEvent('InstanceProjectUpdate', {
@@ -1029,7 +1089,12 @@ async function switchProjectVersion(mod: ContentItem, version: Labrinth.Versions
 	const oldPath = mod.file_path
 
 	try {
-		await switch_project_version_with_dependencies(instance.value.id, oldPath, version.id)
+		await switch_project_version_with_dependencies(
+			instance.value.id,
+			oldPath,
+			version.id,
+			isCurseForgeItem(mod) ? 'curseforge' : 'modrinth',
+		)
 
 		trackEvent('InstanceProjectUpdate', {
 			loader: instance.value.loader,
@@ -1109,7 +1174,11 @@ async function handleUpdate(id: string) {
 	})
 	contentUpdaterModal.value?.show(initialVersionId)
 
-	const versions = await getUpdaterProjectVersions(item.project.id, initialVersionId)
+	const versions = await getUpdaterProjectVersions(
+		item.project.id,
+		initialVersionId,
+		isCurseForgeItem(item),
+	)
 
 	if (!isActiveUpdateRequest(requestId) || getContentItemId(updatingProject.value) !== itemId)
 		return
@@ -1176,7 +1245,11 @@ async function handleSwitchVersion(item: ContentItem) {
 	const initialVersionId = item.version.id
 	contentUpdaterModal.value?.show(initialVersionId, { switchMode: true })
 
-	const versions = await getUpdaterProjectVersions(item.project.id, initialVersionId)
+	const versions = await getUpdaterProjectVersions(
+		item.project.id,
+		initialVersionId,
+		isCurseForgeItem(item),
+	)
 
 	if (!isActiveUpdateRequest(requestId) || getContentItemId(updatingProject.value) !== itemId)
 		return

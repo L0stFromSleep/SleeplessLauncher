@@ -111,6 +111,9 @@ export interface ContentItem extends Omit<
 	external?: boolean
 	external_url?: string
 	embedded_metadata?: EmbeddedContentMetadata | null
+	/** The upstream registry `project`/`version` ids belong to. Unset for
+	 *  items with no resolved project/version metadata at all. */
+	provider?: 'modrinth' | 'curseforge' | null
 }
 
 export type ManagedContentProject = Pick<

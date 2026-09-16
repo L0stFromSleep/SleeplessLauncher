@@ -276,15 +276,19 @@ export async function install_curseforge_project_with_dependencies(
 	})
 }
 
+export type ContentProvider = 'modrinth' | 'curseforge'
+
 export async function switch_project_version_with_dependencies(
 	instanceId: string,
 	projectPath: string,
 	versionId: string,
+	provider?: ContentProvider | null,
 ): Promise<string> {
 	return await invoke('plugin:instance|instance_switch_project_version_with_dependencies', {
 		instanceId,
 		projectPath,
 		versionId,
+		provider: provider ?? null,
 	})
 }
 

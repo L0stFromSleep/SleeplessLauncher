@@ -184,15 +184,18 @@ const installLabel = computed(() => {
 
 async function handleInstall() {
 	if (!mod.value || installDisabled.value) return
-	const file = mod.value.latestFiles[0]
-	if (!file) {
-		handleError(new Error(`No files available for "${mod.value.name}" on CurseForge`))
-		return
-	}
 
 	installing.value = true
 	try {
 		if (contentType.value === 'modpack') {
+			// Modpacks are installed as a specific, self-contained file rather than
+			// matched against an instance's loader/game version, so the latest file
+			// is the correct (and only sensible) choice here.
+			const file = mod.value.latestFiles[0]
+			if (!file) {
+				handleError(new Error(`No files available for "${mod.value.name}" on CurseForge`))
+				return
+			}
 			const job = await install_create_modpack_instance({
 				type: 'fromCurseForgeFile',
 				mod_id: mod.value.id.toString(),
@@ -209,9 +212,13 @@ async function handleInstall() {
 
 		if (!instance.value || !contentType.value) return
 
+		// Leave file_id unset so the backend resolver picks the file matching
+		// this instance's game version and mod loader, instead of blindly
+		// installing latestFiles[0] (CurseForge's own summary list, which is
+		// not filtered or sorted for the current instance at all).
 		await install_curseforge_project_with_dependencies(instance.value.id, {
 			mod_id: mod.value.id.toString(),
-			file_id: file.id.toString(),
+			file_id: null,
 			content_type: contentType.value as Labrinth.Content.v3.ContentType,
 		})
 		installedProjectIds.value = new Set([...installedProjectIds.value, String(mod.value.id)])

@@ -547,6 +547,7 @@ pub(crate) async fn dependencies_to_content_items(
                 date_added: None,
                 source_kind: None,
                 embedded_metadata: None,
+                provider: Some(ContentProvider::Modrinth),
             })
         })
         .collect::<Vec<_>>();
@@ -936,6 +937,7 @@ async fn content_files_to_content_items(
                 date_added: modification_times[index].clone(),
                 source_kind: file.source_kind,
                 embedded_metadata: embedded_metadata.get(&file.hash).cloned(),
+                provider: file.metadata.as_ref().map(|metadata| metadata.provider),
             }
         })
         .collect::<Vec<_>>();

@@ -255,31 +255,58 @@ pub(crate) async fn switch_project_version_with_dependencies(
     instance_id: &str,
     project_path: &str,
     version_id: &str,
+    provider: ContentProvider,
     state: &State,
 ) -> crate::Result<String> {
-    let version = CachedEntry::get_version(
-        version_id,
-        Some(CacheBehaviour::MustRevalidate),
-        &state.pool,
-        &state.api_semaphore,
-    )
-    .await?
-    .ok_or_else(|| {
-        crate::ErrorKind::InputError(format!(
-            "Unable to install version id {version_id}. Not found."
-        ))
-    })?;
-    let content_type = ProjectType::get_from_loaders(version.loaders.clone())
-        .map(ContentType::from)
-        .unwrap_or(ContentType::Mod);
+    let (project_id, content_type) = match provider {
+        ContentProvider::Modrinth => {
+            let version = CachedEntry::get_version(
+                version_id,
+                Some(CacheBehaviour::MustRevalidate),
+                &state.pool,
+                &state.api_semaphore,
+            )
+            .await?
+            .ok_or_else(|| {
+                crate::ErrorKind::InputError(format!(
+                    "Unable to install version id {version_id}. Not found."
+                ))
+            })?;
+            let content_type =
+                ProjectType::get_from_loaders(version.loaders.clone())
+                    .map(ContentType::from)
+                    .unwrap_or(ContentType::Mod);
+            (version.project_id, content_type)
+        }
+        ContentProvider::CurseForge => {
+            let api_key = crate::state::curseforge::api_key(state).await?;
+            let file = crate::state::curseforge::client::get_file(
+                &api_key, version_id, state,
+            )
+            .await?;
+            let cf_mod = crate::state::curseforge::client::get_mod(
+                &api_key,
+                &file.mod_id.to_string(),
+                state,
+            )
+            .await?;
+            let content_type = cf_mod
+                .class_id
+                .and_then(crate::state::curseforge::project_type_for_class_id)
+                .map(ContentType::from)
+                .unwrap_or(ContentType::Mod);
+            (file.mod_id.to_string(), content_type)
+        }
+    };
+
     let plan = resolve_install_plan(
         instance_id,
         InstanceInstallProjectRequest {
-            project_id: version.project_id,
+            project_id,
             version_id: Some(version_id.to_string()),
             content_type,
             selected: ResolutionPreferences::default(),
-            provider: ContentProvider::Modrinth,
+            provider,
         },
         state,
     )
@@ -292,7 +319,7 @@ pub(crate) async fn switch_project_version_with_dependencies(
         DownloadReason::Update,
         None,
         ContentSourceKind::Local,
-        ContentProvider::Modrinth,
+        provider,
         state,
     )
     .await?;
@@ -308,7 +335,7 @@ pub(crate) async fn switch_project_version_with_dependencies(
             instance_id,
             dependency,
             DownloadReason::Dependency,
-            ContentProvider::Modrinth,
+            provider,
             state,
         )
         .await?;

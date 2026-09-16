@@ -1,6 +1,7 @@
 use super::ContentSourceKind;
 use crate::state::{
-    License, Project, ProjectType, Version, VersionEnvironment,
+    ContentProvider, License, Project, ProjectType, Version,
+    VersionEnvironment,
 };
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +23,11 @@ pub struct ContentItem {
     pub date_added: Option<String>,
     pub source_kind: Option<ContentSourceKind>,
     pub embedded_metadata: Option<EmbeddedContentMetadata>,
+    /// The upstream registry this item's `project`/`version` ids belong to.
+    /// `None` for items with no resolved project/version metadata at all
+    /// (e.g. unrecognized uploaded files).
+    #[serde(default)]
+    pub provider: Option<ContentProvider>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]

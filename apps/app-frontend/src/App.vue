@@ -1609,7 +1609,7 @@ async function installUpdate() {
 setAppUpdateActions({
 	download: downloadAvailableUpdate,
 	install: installUpdate,
-	changelog: () => openUrl('https://modrinth.com/news/changelog?filter=app'),
+	changelog: () => openUrl('https://github.com/L0stFromSleep/SleeplessLauncher/releases'),
 })
 
 async function openModrinthProjectLinkInApp(parsed) {

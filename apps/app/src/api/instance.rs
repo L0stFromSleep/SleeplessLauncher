@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use theseus::DownloadReason;
 use theseus::data::{
-    AppliedContentSetPatch, ContentItem, Dependency,
+    AppliedContentSetPatch, ContentItem, ContentProvider, Dependency,
     EditInstance as CoreEditInstance, InstanceInstallCandidate,
     InstanceInstallTarget, InstanceLaunchOverridesPatch,
     InstanceLink as CoreInstanceLink, InstanceMetadata, LinkedModpackInfo,
@@ -741,11 +741,13 @@ pub async fn instance_switch_project_version_with_dependencies(
     instance_id: &str,
     project_path: &str,
     version_id: &str,
+    provider: Option<ContentProvider>,
 ) -> Result<String> {
     Ok(theseus::instance::switch_project_version_with_dependencies(
         instance_id,
         project_path,
         version_id,
+        provider,
     )
     .await?)
 }
