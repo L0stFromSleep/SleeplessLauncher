@@ -65,6 +65,13 @@ function main() {
 	}
 	const signature = fs.readFileSync(sigPath, 'utf8').trim()
 
+	// GitHub silently replaces whitespace in an uploaded release asset's
+	// filename with periods (so the local "Sleepless Launcher_1.2.3_x64-setup.exe"
+	// is served as "Sleepless.Launcher_1.2.3_x64-setup.exe"). The manifest URL
+	// has to match what's actually downloadable, not the local build filename,
+	// or the updater's download request 404s.
+	const releaseAssetName = setupExe.replace(/\s+/g, '.')
+
 	const manifest = {
 		version,
 		notes: `See the release notes: https://github.com/${repoSlug}/releases/tag/${tag}`,
@@ -72,7 +79,7 @@ function main() {
 		platforms: {
 			'windows-x86_64': {
 				signature,
-				url: `https://github.com/${repoSlug}/releases/download/${tag}/${setupExe}`,
+				url: `https://github.com/${repoSlug}/releases/download/${tag}/${encodeURIComponent(releaseAssetName)}`,
 			},
 		},
 	}

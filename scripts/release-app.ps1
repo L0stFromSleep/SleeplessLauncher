@@ -40,6 +40,12 @@ if ($LASTEXITCODE -ne 0) {
     throw "bump-app-version failed with exit code $LASTEXITCODE"
 }
 
+# tauri build doesn't clean target/release/bundle/ between runs, so a stale
+# installer from a previous local build can otherwise get uploaded alongside
+# (or instead of) this release's, or get picked up by generate-update-manifest.
+Write-Host "Cleaning previous local build output..." -ForegroundColor Cyan
+Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "target/release/bundle/msi", "target/release/bundle/nsis"
+
 Write-Host "Building app (release, updater-signed)..." -ForegroundColor Cyan
 pnpm --filter @modrinth/app tauri build --config tauri-release.conf.json --features updater
 if ($LASTEXITCODE -ne 0) {

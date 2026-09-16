@@ -36,6 +36,12 @@ fi
 echo "Bumping app version to $TAG..."
 node scripts/run.mjs bump-app-version "$TAG"
 
+# tauri build doesn't clean target/release/bundle/ between runs, so a stale
+# installer from a previous local build can otherwise get uploaded alongside
+# (or instead of) this release's, or get picked up by generate-update-manifest.
+echo "Cleaning previous local build output..."
+rm -rf target/release/bundle/msi target/release/bundle/nsis
+
 echo "Building app (release, updater-signed)..."
 pnpm --filter @modrinth/app tauri build --config tauri-release.conf.json --features updater
 
