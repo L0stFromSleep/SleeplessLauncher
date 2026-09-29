@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import { getTagMessage, SOURCE_TAGS, sortTagsForDisplay } from '../../../utils'
+import { getTagMessage, sortTagsForDisplay,SOURCE_TAGS } from '../../../utils'
 import { TagTagItem } from '../../base'
 import TagsOverflow from '../TagsOverflow.vue'
 

@@ -740,23 +740,11 @@
   "app.nav.modrinth-account": {
     "message": "Modrinth 帳號"
   },
-  "app.nav.modrinth-hosting": {
-    "message": "Modrinth Hosting"
-  },
   "app.nav.sign-in-to-modrinth-account": {
     "message": "登入 Modrinth 帳號"
   },
   "app.nav.signed-in-as": {
     "message": "以 <user>{username}</user> 登入"
-  },
-  "app.nav.upgrade-to-modrinth-plus": {
-    "message": "升級至 Modrinth+"
-  },
-  "app.news.title": {
-    "message": "新聞"
-  },
-  "app.news.view-all": {
-    "message": "查看所有新聞"
   },
   "app.project.install-button.already-installed": {
     "message": "這個專案已安裝"
@@ -892,12 +880,6 @@
   },
   "app.settings.privacy.discord-rich-presence.title": {
     "message": "Discord 豐富狀態"
-  },
-  "app.settings.privacy.telemetry.description": {
-    "message": "Modrinth 會收集匿名化的分析與使用資料，以提升使用者體驗並提供客製化服務。若停用此選項，即表示你選擇退出，你的資料將不再被收集。"
-  },
-  "app.settings.privacy.telemetry.title": {
-    "message": "遙測"
   },
   "app.settings.resource-management.always-show-copy-details.description": {
     "message": "當安裝已排入佇列或正在執行時，顯示「複製詳細資訊」按鈕。這項設定僅適用於前述安裝情形，安裝失敗或中斷時一律顯示該按鈕。"
@@ -1129,21 +1111,6 @@
   },
   "app.skins.toggle-ears-features-on": {
     "message": "開啟"
-  },
-  "app.survey.body": {
-    "message": "你方便回答幾個關於 Modrinth App 使用體驗的問題嗎？"
-  },
-  "app.survey.footer": {
-    "message": "你的回覆將直接傳送給 Modrinth 團隊，作為未來更新方向的指引！"
-  },
-  "app.survey.no-thanks": {
-    "message": "不用了，謝謝"
-  },
-  "app.survey.take-survey": {
-    "message": "填寫問卷調查"
-  },
-  "app.survey.title": {
-    "message": "你好啊，Modrinth 使用者！"
   },
   "app.update-popup.body.download-complete": {
     "message": "Modrinth App v{version} 已完成下載！立即重新載入以更新，或在關閉 Modrinth App 時自動更新。"

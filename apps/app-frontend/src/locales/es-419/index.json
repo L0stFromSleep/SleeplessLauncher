@@ -740,23 +740,11 @@
   "app.nav.modrinth-account": {
     "message": "Cuenta Modrinth"
   },
-  "app.nav.modrinth-hosting": {
-    "message": "Modrinth Hosting"
-  },
   "app.nav.sign-in-to-modrinth-account": {
     "message": "Inicia sesión con una cuenta Modrinth"
   },
   "app.nav.signed-in-as": {
     "message": "Sesión iniciada como <user>{username}</user>"
-  },
-  "app.nav.upgrade-to-modrinth-plus": {
-    "message": "Mejorar a Modrinth+"
-  },
-  "app.news.title": {
-    "message": "Noticias"
-  },
-  "app.news.view-all": {
-    "message": "Ver todas las noticias"
   },
   "app.project.install-button.already-installed": {
     "message": "Este proyecto ya está instalado"
@@ -892,12 +880,6 @@
   },
   "app.settings.privacy.discord-rich-presence.title": {
     "message": "Discord Rich Presence"
-  },
-  "app.settings.privacy.telemetry.description": {
-    "message": "Modrinth recolecta datos analíticos anónimos y datos de uso para mejorar la experiencia de nuestros usuarios y para personalizar tu experiencia. Al desactivar esta opción, tus datos dejarán de ser recolectados."
-  },
-  "app.settings.privacy.telemetry.title": {
-    "message": "Telemetría"
   },
   "app.settings.resource-management.always-show-copy-details.description": {
     "message": "Muestra la opción 'Copiar detalles' mientras haya una instalación en cola o instalando. Siempre está disponible para las instalaciones fallidas o interrumpidas."
@@ -1129,21 +1111,6 @@
   },
   "app.skins.toggle-ears-features-on": {
     "message": "Activar"
-  },
-  "app.survey.body": {
-    "message": "¿Te importaría responder unas cuantas preguntas sobre tu experiencia con la aplicación de Modrinth?"
-  },
-  "app.survey.footer": {
-    "message": "¡Tus comentarios llegarán directamente al equipo de Modrinth, y los ayudará a hacer mejores actualizaciones!"
-  },
-  "app.survey.no-thanks": {
-    "message": "No, gracias"
-  },
-  "app.survey.take-survey": {
-    "message": "Aceptar encuesta"
-  },
-  "app.survey.title": {
-    "message": "¡Hola, usuario de Modrinth!"
   },
   "app.update-popup.body.download-complete": {
     "message": "La descarga de la Modrinth App v{version} ha finalizado. Actualiza ahora o automáticamente al cerrar la Modrinth App."

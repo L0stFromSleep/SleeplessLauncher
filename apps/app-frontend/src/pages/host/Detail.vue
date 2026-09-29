@@ -58,12 +58,12 @@ import {
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import * as hosting from '@/helpers/hosting'
 import type {
 	HostedServer,
 	HostedServerContentSummary,
 	HostedServerProperties,
 } from '@/helpers/hosting'
+import * as hosting from '@/helpers/hosting'
 import { highlightInFolder } from '@/helpers/utils'
 import { useRootBreadcrumb } from '@/providers/breadcrumbs'
 

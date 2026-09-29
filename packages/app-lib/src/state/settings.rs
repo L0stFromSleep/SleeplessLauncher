@@ -40,6 +40,8 @@ pub struct Settings {
 
     pub curseforge_api_key: Option<String>,
 
+    pub has_seen_welcome_guide: bool,
+
     pub developer_mode: bool,
     pub feature_flags: HashMap<FeatureFlag, bool>,
 
@@ -95,6 +97,7 @@ impl Settings {
                 skipped_update, pending_update_toast_for_version, auto_download_updates,
                 sync_theme_across_devices, sync_behavior_across_devices,
                 curseforge_api_key,
+                has_seen_welcome_guide,
                 version
             FROM settings
             "
@@ -156,6 +159,7 @@ impl Settings {
             sync_theme_across_devices: res.sync_theme_across_devices == 1,
             sync_behavior_across_devices: res.sync_behavior_across_devices == 1,
             curseforge_api_key: res.curseforge_api_key,
+            has_seen_welcome_guide: res.has_seen_welcome_guide,
             version: res.version as usize,
         })
     }
@@ -220,8 +224,9 @@ impl Settings {
                 sync_behavior_across_devices = $33,
 
                 curseforge_api_key = $34,
+                has_seen_welcome_guide = $35,
 
-                version = $35
+                version = $36
             ",
             max_concurrent_writes,
             max_concurrent_downloads,
@@ -257,6 +262,7 @@ impl Settings {
             self.sync_theme_across_devices,
             self.sync_behavior_across_devices,
             self.curseforge_api_key,
+            self.has_seen_welcome_guide,
             version,
         )
         .execute(exec)

@@ -44,9 +44,9 @@ import { useAppServerBrowse } from '@/composables/browse/use-app-server-browse'
 import { useAppEvent } from '@/composables/use-app-event'
 import { useAppSettings } from '@/composables/use-app-settings.ts'
 import { get_project, get_search_results_v3, get_version, get_version_many } from '@/helpers/cache.js'
+import type { CfMod } from '@/helpers/curseforge.ts'
 import * as curseforge from '@/helpers/curseforge.ts'
 import { classIdForProjectType } from '@/helpers/curseforge.ts'
-import type { CfMod } from '@/helpers/curseforge.ts'
 import * as hosting from '@/helpers/hosting'
 import {
 	install_create_modpack_instance,
@@ -1174,7 +1174,16 @@ function getCurseForgeCardActions(
 		]
 	}
 
-	const isInstalled = curseforgeInstalled.value.has(result.project_id)
+	// The persisted installed-project sets are populated from the instance's
+	// content entries, which store a CurseForge-sourced file's project_id as
+	// the bare CurseForge mod id (see install_curseforge_pack.rs) -- not the
+	// `curseforge:<id>` form used for search hits (cfModToSearchHit) -- so an
+	// already-installed CurseForge mod must be looked up by the bare id here.
+	const cfModId = mod.id.toString()
+	const isInstalled =
+		curseforgeInstalled.value.has(result.project_id) ||
+		allInstalledIds.value.has(cfModId) ||
+		serverContentProjectIds.value.has(cfModId)
 	const isInstalling = curseforgeInstalling.value.has(result.project_id)
 
 	return [

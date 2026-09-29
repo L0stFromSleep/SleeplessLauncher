@@ -65,6 +65,8 @@ export type AppSettings = {
 
 	curseforge_api_key?: string | null
 
+	has_seen_welcome_guide: boolean
+
 	developer_mode: boolean
 	feature_flags: Record<FeatureFlag, boolean>
 

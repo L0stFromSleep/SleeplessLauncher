@@ -72,7 +72,7 @@ impl LauncherFeatureVersion {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, Deserialize, Serialize)]
 #[cfg_attr(
     feature = "export-ts",
     derive(ts_rs::TS, postcard_bindgen::PostcardBindings)
@@ -115,6 +115,22 @@ impl ModLoader {
             "quilt" => Self::Quilt,
             "neoforge" => Self::NeoForge,
             _ => Self::Vanilla,
+        }
+    }
+
+    /// Parses the loader identifier used in launcher-meta paths (see
+    /// [`Self::as_meta_str`]), returning `None` for an unrecognized value
+    /// rather than silently defaulting, since callers of this variant
+    /// (metadata lookups) need to distinguish "unknown loader" from
+    /// "vanilla".
+    pub fn from_meta_str(val: &str) -> Option<Self> {
+        match val {
+            "vanilla" => Some(Self::Vanilla),
+            "forge" => Some(Self::Forge),
+            "fabric" => Some(Self::Fabric),
+            "quilt" => Some(Self::Quilt),
+            "neo" => Some(Self::NeoForge),
+            _ => None,
         }
     }
 }

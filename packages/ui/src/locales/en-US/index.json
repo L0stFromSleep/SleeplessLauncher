@@ -749,6 +749,12 @@
   "content.page-layout.sort.label": {
     "defaultMessage": "Sort by {mode}"
   },
+  "content.page-layout.source-curseforge": {
+    "defaultMessage": "From CurseForge"
+  },
+  "content.page-layout.source-modrinth": {
+    "defaultMessage": "From Modrinth"
+  },
   "content.page-layout.update-all": {
     "defaultMessage": "Update all"
   },
@@ -4280,6 +4286,9 @@
   "search.filter_type.shader_loader": {
     "defaultMessage": "Loader"
   },
+  "search.filter_type.source": {
+    "defaultMessage": "Source"
+  },
   "search.photosensitivity-warning-modal.body.1": {
     "defaultMessage": "We cannot guarantee that all content on Modrinth has been labeled appropriately."
   },
@@ -6350,6 +6359,9 @@
   "tag.loader.canvas": {
     "defaultMessage": "Canvas"
   },
+  "tag.loader.curseforge": {
+    "defaultMessage": "CurseForge"
+  },
   "tag.loader.datapack": {
     "defaultMessage": "Data Pack"
   },
@@ -6382,6 +6394,9 @@
   },
   "tag.loader.modloader": {
     "defaultMessage": "Risugami's ModLoader"
+  },
+  "tag.loader.modrinth": {
+    "defaultMessage": "Modrinth"
   },
   "tag.loader.mrpack": {
     "defaultMessage": "Modpack"

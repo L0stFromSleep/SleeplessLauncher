@@ -58,7 +58,7 @@ import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { type } from '@tauri-apps/plugin-os'
 import { saveWindowState, StateFlags } from '@tauri-apps/plugin-window-state'
-import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 
 import AccountsCard from '@/components/ui/AccountsCard.vue'
@@ -86,6 +86,7 @@ import PrideFundraiserBanner from '@/components/ui/PrideFundraiserBanner.vue'
 import QuickInstanceSwitcher from '@/components/ui/QuickInstanceSwitcher.vue'
 import SharedInstanceInviteHandler from '@/components/ui/shared-instances/shared-instance-invite-handler/index.vue'
 import SplashScreen from '@/components/ui/SplashScreen.vue'
+import WelcomeGuideModal from '@/components/ui/welcome-guide/WelcomeGuideModal.vue'
 import WindowControls from '@/components/ui/WindowControls.vue'
 import { useCheckDisableMouseover } from '@/composables/macCssFix.js'
 import { useAppEvent } from '@/composables/use-app-event'
@@ -420,6 +421,7 @@ const os = ref('')
 const isDevEnvironment = ref(false)
 
 const stateInitialized = ref(false)
+const hasSeenWelcomeGuide = ref(true)
 
 const criticalErrorMessage = ref()
 
@@ -632,7 +634,10 @@ async function setupApp() {
 		developer_mode,
 		feature_flags,
 		pending_update_toast_for_version,
+		has_seen_welcome_guide,
 	} = await getSettings()
+
+	hasSeenWelcomeGuide.value = has_seen_welcome_guide
 
 	// Initialize locale from saved settings
 	if (locale) {
@@ -927,7 +932,14 @@ const updateToPlayModal = ref()
 
 const modrinthLoginModal = ref()
 const appSettingsModal = ref()
+const welcomeGuideModal = ref()
 provide(appSettingsModalOpenProfileKey, () => appSettingsModal.value?.showProfile())
+
+watch(stateInitialized, async (ready) => {
+	if (!ready || hasSeenWelcomeGuide.value) return
+	await nextTick()
+	welcomeGuideModal.value?.show()
+})
 
 watch(incompatibilityWarningModal, (modal) => {
 	if (modal) {
@@ -1706,6 +1718,7 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 		<Suspense>
 			<AppSettingsModal ref="appSettingsModal" />
 		</Suspense>
+		<WelcomeGuideModal ref="welcomeGuideModal" />
 		<Suspense>
 			<ModrinthAccountRequiredModal ref="modrinthLoginModal" :request-auth="requestModrinthAuth" />
 		</Suspense>

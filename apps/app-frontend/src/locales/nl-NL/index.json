@@ -740,23 +740,11 @@
   "app.nav.modrinth-account": {
     "message": "Modrinth-account"
   },
-  "app.nav.modrinth-hosting": {
-    "message": "Modrinth Hosting"
-  },
   "app.nav.sign-in-to-modrinth-account": {
     "message": "Meld je aan bij een Modrinth-account"
   },
   "app.nav.signed-in-as": {
     "message": "Aangemeld als <user>{username}</user>"
-  },
-  "app.nav.upgrade-to-modrinth-plus": {
-    "message": "Upgrade naar Modrinth+"
-  },
-  "app.news.title": {
-    "message": "Nieuws"
-  },
-  "app.news.view-all": {
-    "message": "Al het nieuws bekijken"
   },
   "app.project.install-button.already-installed": {
     "message": "Dit project is al geïnstalleerd"
@@ -892,12 +880,6 @@
   },
   "app.settings.privacy.discord-rich-presence.title": {
     "message": "Discord Rich Presence"
-  },
-  "app.settings.privacy.telemetry.description": {
-    "message": "Modrinth verzamelt geanonimiseerde analyse- en gebruiksgegevens om de gebruikerservaring te verbeteren en uw ervaring te personaliseren. Door deze optie uit te schakelen, meldt u zich af en worden uw gegevens niet langer verzameld."
-  },
-  "app.settings.privacy.telemetry.title": {
-    "message": "Telemetrie"
   },
   "app.settings.resource-management.always-show-copy-details.description": {
     "message": "Geef de knop 'Details kopiëren' weer terwijl een installatie in de wachtrij staat of wordt uitgevoerd. Deze actie is altijd beschikbaar voor mislukte of onderbroken installaties."
@@ -1129,21 +1111,6 @@
   },
   "app.skins.toggle-ears-features-on": {
     "message": "Inschakelen"
-  },
-  "app.survey.body": {
-    "message": "Zou je een paar vragen willen beantwoorden over je ervaringen met de Modrinth-app?"
-  },
-  "app.survey.footer": {
-    "message": "Deze feedback wordt rechtstreeks doorgestuurd naar het Modrinth-team en zal als leidraad dienen voor toekomstige updates!"
-  },
-  "app.survey.no-thanks": {
-    "message": "Nee, bedankt"
-  },
-  "app.survey.take-survey": {
-    "message": "Aan enquête meedoen"
-  },
-  "app.survey.title": {
-    "message": "Hoi, Modrinth-gebruiker!"
   },
   "app.update-popup.body.download-complete": {
     "message": "Modrinth App v{version} is klaar met downloaden. Herlaad om nu te updaten, of automatisch wanneer je de Modrinth App afsluit."

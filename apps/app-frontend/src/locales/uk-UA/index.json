@@ -740,23 +740,11 @@
   "app.nav.modrinth-account": {
     "message": "Обліковий запис Modrinth"
   },
-  "app.nav.modrinth-hosting": {
-    "message": "Хостинг Modrinth"
-  },
   "app.nav.sign-in-to-modrinth-account": {
     "message": "Увійти в обліковий запис Modrinth"
   },
   "app.nav.signed-in-as": {
     "message": "Вхід виконано як <user>{username}</user>"
-  },
-  "app.nav.upgrade-to-modrinth-plus": {
-    "message": "Оновити до Modrinth+"
-  },
-  "app.news.title": {
-    "message": "Новини"
-  },
-  "app.news.view-all": {
-    "message": "Переглянути всі новини"
   },
   "app.project.install-button.already-installed": {
     "message": "Проєкт уже встановлено"
@@ -892,12 +880,6 @@
   },
   "app.settings.privacy.discord-rich-presence.title": {
     "message": "Discord Rich Presence"
-  },
-  "app.settings.privacy.telemetry.description": {
-    "message": "Modrinth збирає анонімізовану аналітику та дані про використання для покращення зручності та адаптації сервісу. Вимкнувши цю опцію, ви відмовляєтеся від збору, і ваші дані більше не збиратимуться."
-  },
-  "app.settings.privacy.telemetry.title": {
-    "message": "Телеметрія"
   },
   "app.settings.resource-management.always-show-copy-details.description": {
     "message": "Показувати кнопку «Копіювати деталі», коли встановлення перебуває в черзі або виконується. Вона завжди доступна для невдалих або перерваних встановлень."
@@ -1129,21 +1111,6 @@
   },
   "app.skins.toggle-ears-features-on": {
     "message": "Увімкнути"
-  },
-  "app.survey.body": {
-    "message": "Не бажаєте відповісти на кілька запитань про ваш досвід користування Modrinth App?"
-  },
-  "app.survey.footer": {
-    "message": "Цей відгук надійде безпосередньо команді Modrinth і допоможе у створенні майбутніх оновлень!"
-  },
-  "app.survey.no-thanks": {
-    "message": "Ні, дякую"
-  },
-  "app.survey.take-survey": {
-    "message": "Пройти опитування"
-  },
-  "app.survey.title": {
-    "message": "Привіт, користувачу Modrinth!"
   },
   "app.update-popup.body.download-complete": {
     "message": "Modrinth App v{version} завантажено. Перезапустіть, щоб оновити зараз, або це відбудеться автоматично після закриття застосунку."

@@ -707,23 +707,11 @@
   "app.nav.modrinth-account": {
     "message": "Konto Modrinth"
   },
-  "app.nav.modrinth-hosting": {
-    "message": "Modrinth Hosting"
-  },
   "app.nav.sign-in-to-modrinth-account": {
     "message": "Zaloguj się na konto Modrinth"
   },
   "app.nav.signed-in-as": {
     "message": "Zalogowano jako <user>{username}</user>"
-  },
-  "app.nav.upgrade-to-modrinth-plus": {
-    "message": "Ulepsz do Modrinth+"
-  },
-  "app.news.title": {
-    "message": "Aktualności"
-  },
-  "app.news.view-all": {
-    "message": "Zobacz wszystkie aktualności"
   },
   "app.project.install-button.already-installed": {
     "message": "Ten projekt jest już zainstalowany"
@@ -829,9 +817,6 @@
   },
   "app.settings.privacy.discord-rich-presence.title": {
     "message": "Discord Rich Presence"
-  },
-  "app.settings.privacy.telemetry.title": {
-    "message": "Telemetria"
   },
   "app.settings.resource-management.maximum-concurrent-downloads.description": {
     "message": "Ilość plików, które aplikacja może pobierać na raz. Zmniejsz tę wartość, jeśli pobieranie jest niestabilne. Wymaga ponownego uruchomienia aplikacji."
@@ -1015,15 +1000,6 @@
   },
   "app.skins.toggle-ears-features-on": {
     "message": "Włącz"
-  },
-  "app.survey.no-thanks": {
-    "message": "Nie, dziękuję"
-  },
-  "app.survey.take-survey": {
-    "message": "Weź udział w ankiecie"
-  },
-  "app.survey.title": {
-    "message": "Cześć, użytkowniku Modrinth!"
   },
   "app.update-popup.body.download-complete": {
     "message": "Wersja Modrinth App v{version} została pobrana. Załaduj ponownie, żeby zaktualizować teraz, albo automatycznie, gdy zamkniesz Modrinth App."

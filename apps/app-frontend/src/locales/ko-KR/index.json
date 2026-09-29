@@ -737,23 +737,11 @@
   "app.nav.modrinth-account": {
     "message": "Modrinth 계정"
   },
-  "app.nav.modrinth-hosting": {
-    "message": "Modrinth 호스팅"
-  },
   "app.nav.sign-in-to-modrinth-account": {
     "message": "Modrinth 계정으로 로그인"
   },
   "app.nav.signed-in-as": {
     "message": "<user>{username}</user> 으로 로그인됨"
-  },
-  "app.nav.upgrade-to-modrinth-plus": {
-    "message": "Modrinth+ 로 업그레이드"
-  },
-  "app.news.title": {
-    "message": "뉴스"
-  },
-  "app.news.view-all": {
-    "message": "모든 뉴스 보기"
   },
   "app.project.install-button.already-installed": {
     "message": "이미 설치되어 있음"
@@ -889,12 +877,6 @@
   },
   "app.settings.privacy.discord-rich-presence.title": {
     "message": "Discord 활동 상태"
-  },
-  "app.settings.privacy.telemetry.description": {
-    "message": "Modrinth는 사용자 경험 향상 및 맞춤 설정을 위해 익명화된 분석 데이터와 사용 데이터를 수집합니다. 이 옵션을 비활성화하면 데이터 수집을 거부하게 되며, 더 이상 데이터가 수집되지 않습니다."
-  },
-  "app.settings.privacy.telemetry.title": {
-    "message": "원격 분석"
   },
   "app.settings.resource-management.always-show-copy-details.description": {
     "message": "설치가 대기 중이거나 진행 중일 때 '상세 정보 복사' 버튼을 표시합니다. 실패했거나 중단된 설치 건에서는 항상 사용할 수 있습니다."
@@ -1126,21 +1108,6 @@
   },
   "app.skins.toggle-ears-features-on": {
     "message": "켜기"
-  },
-  "app.survey.body": {
-    "message": "Modrinth 앱 이용 경험에 대한 몇 가지 질문에 답변해 주시겠습니까?"
-  },
-  "app.survey.footer": {
-    "message": "이 피드백은 Modrinth 팀에 직접 전달되어 향후 업데이트에 반영됩니다!"
-  },
-  "app.survey.no-thanks": {
-    "message": "괜찮습니다"
-  },
-  "app.survey.take-survey": {
-    "message": "설문 참여하기"
-  },
-  "app.survey.title": {
-    "message": "안녕하세요, Modrinth 사용자님!"
   },
   "app.update-popup.body.download-complete": {
     "message": "Modrinth App v{version} 다운로드가 완료되었습니다. 새로고침하거나 Modrinth App을 종료하면 자동으로 업데이트됩니다."

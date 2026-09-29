@@ -731,23 +731,11 @@
   "app.nav.modrinth-account": {
     "message": "Аккаунт Modrinth"
   },
-  "app.nav.modrinth-hosting": {
-    "message": "Modrinth Hosting"
-  },
   "app.nav.sign-in-to-modrinth-account": {
     "message": "Войти в аккаунт Modrinth"
   },
   "app.nav.signed-in-as": {
     "message": "Текущий аккаунт: <user>{username}</user>"
-  },
-  "app.nav.upgrade-to-modrinth-plus": {
-    "message": "Перейти на Modrinth+"
-  },
-  "app.news.title": {
-    "message": "Новости"
-  },
-  "app.news.view-all": {
-    "message": "Посмотреть все новости"
   },
   "app.project.install-button.already-installed": {
     "message": "Этот проект уже установлен"
@@ -883,12 +871,6 @@
   },
   "app.settings.privacy.discord-rich-presence.title": {
     "message": "Discord Rich Presence"
-  },
-  "app.settings.privacy.telemetry.description": {
-    "message": "Modrinth собирает анонимные данные об использовании для персонализации и улучшения сервиса. Отключите этот параметр, чтобы отказаться от сбора данных."
-  },
-  "app.settings.privacy.telemetry.title": {
-    "message": "Телеметрия"
   },
   "app.settings.resource-management.always-show-copy-details.description": {
     "message": "Показывать кнопку «Получить отчёт» во время установки. Для прерванных установок кнопка видна всегда."
@@ -1120,21 +1102,6 @@
   },
   "app.skins.toggle-ears-features-on": {
     "message": "Включить"
-  },
-  "app.survey.body": {
-    "message": "Не хотите ответить на несколько вопросов о вашем опыте с Modrinth App?"
-  },
-  "app.survey.footer": {
-    "message": "Этот отзыв будет доставлен напрямую команде Modrinth и поможет разрабатывать будущие обновления!"
-  },
-  "app.survey.no-thanks": {
-    "message": "Нет, спасибо"
-  },
-  "app.survey.take-survey": {
-    "message": "Пройти опрос"
-  },
-  "app.survey.title": {
-    "message": "Привет, пользователь Modrinth!"
   },
   "app.update-popup.body.download-complete": {
     "message": "Скачивание версии Modrinth App {version} завершено. Перезапустите приложение, чтобы обновить его, или оно обновится автоматически после закрытия."

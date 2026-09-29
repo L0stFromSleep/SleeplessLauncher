@@ -35,5 +35,29 @@ pub async fn get_loader_versions(loader: &str) -> crate::Result<Manifest> {
         crate::ErrorKind::NoValueFor(format!("{loader} loader versions"))
     })?;
 
-    Ok(loaders.manifest)
+    let mut manifest = loaders.manifest;
+
+    // Modrinth's hosted manifest can be missing game versions it should
+    // cover (see `launcher::loader_fallback`); patch any gaps in from the
+    // loader's own upstream metadata so consumers of this manifest (e.g. the
+    // instance version/loader pickers) see the full picture rather than
+    // whatever subset happened to make it into the last generated manifest.
+    if let Some(mod_loader) = crate::data::ModLoader::from_meta_str(loader)
+        && let Err(err) = crate::launcher::loader_fallback::patch_manifest_gaps(
+            mod_loader,
+            &mut manifest,
+        )
+        .await
+    {
+        // The upstream fallback source being unreachable (offline, host
+        // down) shouldn't take down the whole manifest -- callers still get
+        // whatever Modrinth's own (possibly incomplete) manifest has.
+        tracing::warn!(
+            loader,
+            %err,
+            "Failed to patch loader manifest gaps from upstream metadata"
+        );
+    }
+
+    Ok(manifest)
 }

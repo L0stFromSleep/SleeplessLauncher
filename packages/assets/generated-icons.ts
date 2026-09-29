@@ -274,8 +274,6 @@ import _SunriseIcon from './icons/sunrise.svg?component'
 import _SupportChatIcon from './icons/support-chat.svg?component'
 import _TagIcon from './icons/tag.svg?component'
 import _TagsIcon from './icons/tags.svg?component'
-import _TagCategoryCurseforgeIcon from './icons/tags/categories/curseforge.svg?component'
-import _TagCategoryModrinthIcon from './icons/tags/categories/modrinth.svg?component'
 import _TagCategoryAdventureIcon from './icons/tags/categories/adventure.svg?component'
 import _TagCategoryAtmosphereIcon from './icons/tags/categories/atmosphere.svg?component'
 import _TagCategoryAudioIcon from './icons/tags/categories/audio.svg?component'
@@ -298,6 +296,7 @@ import _TagCategoryCompassIcon from './icons/tags/categories/compass.svg?compone
 import _TagCategoryCoreShadersIcon from './icons/tags/categories/core-shaders.svg?component'
 import _TagCategoryCrownIcon from './icons/tags/categories/crown.svg?component'
 import _TagCategoryCursedIcon from './icons/tags/categories/cursed.svg?component'
+import _TagCategoryCurseforgeIcon from './icons/tags/categories/curseforge.svg?component'
 import _TagCategoryDecorationIcon from './icons/tags/categories/decoration.svg?component'
 import _TagCategoryDicesIcon from './icons/tags/categories/dices.svg?component'
 import _TagCategoryEconomyIcon from './icons/tags/categories/economy.svg?component'
@@ -337,6 +336,7 @@ import _TagCategoryMinigameIcon from './icons/tags/categories/minigame.svg?compo
 import _TagCategoryMobsIcon from './icons/tags/categories/mobs.svg?component'
 import _TagCategoryModdedIcon from './icons/tags/categories/modded.svg?component'
 import _TagCategoryModelsIcon from './icons/tags/categories/models.svg?component'
+import _TagCategoryModrinthIcon from './icons/tags/categories/modrinth.svg?component'
 import _TagCategoryMultiplayerIcon from './icons/tags/categories/multiplayer.svg?component'
 import _TagCategoryNetworkIcon from './icons/tags/categories/network.svg?component'
 import _TagCategoryOptimizationIcon from './icons/tags/categories/optimization.svg?component'
@@ -720,8 +720,6 @@ export const SunriseIcon = _SunriseIcon
 export const SupportChatIcon = _SupportChatIcon
 export const TagIcon = _TagIcon
 export const TagsIcon = _TagsIcon
-export const TagCategoryCurseforgeIcon = _TagCategoryCurseforgeIcon
-export const TagCategoryModrinthIcon = _TagCategoryModrinthIcon
 export const TagCategoryAdventureIcon = _TagCategoryAdventureIcon
 export const TagCategoryAtmosphereIcon = _TagCategoryAtmosphereIcon
 export const TagCategoryAudioIcon = _TagCategoryAudioIcon
@@ -744,6 +742,7 @@ export const TagCategoryCompassIcon = _TagCategoryCompassIcon
 export const TagCategoryCoreShadersIcon = _TagCategoryCoreShadersIcon
 export const TagCategoryCrownIcon = _TagCategoryCrownIcon
 export const TagCategoryCursedIcon = _TagCategoryCursedIcon
+export const TagCategoryCurseforgeIcon = _TagCategoryCurseforgeIcon
 export const TagCategoryDecorationIcon = _TagCategoryDecorationIcon
 export const TagCategoryDicesIcon = _TagCategoryDicesIcon
 export const TagCategoryEconomyIcon = _TagCategoryEconomyIcon
@@ -783,6 +782,7 @@ export const TagCategoryMinigameIcon = _TagCategoryMinigameIcon
 export const TagCategoryMobsIcon = _TagCategoryMobsIcon
 export const TagCategoryModdedIcon = _TagCategoryModdedIcon
 export const TagCategoryModelsIcon = _TagCategoryModelsIcon
+export const TagCategoryModrinthIcon = _TagCategoryModrinthIcon
 export const TagCategoryMultiplayerIcon = _TagCategoryMultiplayerIcon
 export const TagCategoryNetworkIcon = _TagCategoryNetworkIcon
 export const TagCategoryOptimizationIcon = _TagCategoryOptimizationIcon
@@ -920,6 +920,7 @@ export const categoryIconMap: Record<string, IconComponent> = {
 	'core-shaders': TagCategoryCoreShadersIcon,
 	crown: TagCategoryCrownIcon,
 	cursed: TagCategoryCursedIcon,
+	curseforge: TagCategoryCurseforgeIcon,
 	decoration: TagCategoryDecorationIcon,
 	dices: TagCategoryDicesIcon,
 	economy: TagCategoryEconomyIcon,
@@ -959,6 +960,7 @@ export const categoryIconMap: Record<string, IconComponent> = {
 	mobs: TagCategoryMobsIcon,
 	modded: TagCategoryModdedIcon,
 	models: TagCategoryModelsIcon,
+	modrinth: TagCategoryModrinthIcon,
 	multiplayer: TagCategoryMultiplayerIcon,
 	network: TagCategoryNetworkIcon,
 	optimization: TagCategoryOptimizationIcon,
@@ -1003,8 +1005,6 @@ export const categoryIconMap: Record<string, IconComponent> = {
 }
 
 export const loaderIconMap: Record<string, IconComponent> = {
-	curseforge: TagCategoryCurseforgeIcon,
-	modrinth: TagCategoryModrinthIcon,
 	babric: TagLoaderBabricIcon,
 	'bta-babric': TagLoaderBtaBabricIcon,
 	bukkit: TagLoaderBukkitIcon,

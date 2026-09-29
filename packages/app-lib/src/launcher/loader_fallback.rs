@@ -7,19 +7,27 @@
 //! NeoForge manifest outage this was written for). When that happens the
 //! per-version profile JSON (`{loader}/v{format}/versions/{id}.json`) is
 //! still hosted and correct -- only the top-level index is wrong -- so this
-//! module rediscovers which loader version IDs are valid for a game version
-//! by asking the loader's own canonical (Maven) metadata directly, and
-//! reconstructs `LoaderVersion` entries pointing at Modrinth's existing
+//! module rediscovers which loader version IDs are valid for each game
+//! version by asking the loader's own canonical (Maven) metadata directly,
+//! and reconstructs `LoaderVersion` entries pointing at Modrinth's existing
 //! per-version URLs.
+//!
+//! [`patch_manifest_gaps`] is the single entry point: it's called from
+//! `api::metadata::get_loader_versions`, so every consumer of a loader
+//! manifest -- the launch path, instance-editing UI, version pickers --
+//! transparently sees the same complete, gap-filled picture.
 //!
 //! Fabric and Quilt aren't affected by this class of bug: their loader
 //! versions aren't tied to a specific game version in the manifest (a single
 //! wildcard `${modrinth.gameVersion}` entry covers every game version), so
-//! there is nothing to fall back for.
+//! there is nothing to fall back for, and this module is a no-op for them.
 
 use std::collections::HashMap;
+use std::sync::LazyLock;
+use std::time::{Duration, Instant};
 
-use daedalus::modded::LoaderVersion;
+use daedalus::modded::{LoaderVersion, Manifest, Version as ManifestVersion};
+use dashmap::DashMap;
 use quick_xml::Reader;
 use quick_xml::events::Event;
 use reqwest::Method;
@@ -31,54 +39,79 @@ use crate::util::fetch::{fetch_advanced, fetch_json};
 const NEOFORGE_MAVEN_METADATA_URL: &str = "https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml";
 const FORGE_MAVEN_METADATA_URL: &str = "https://files.minecraftforge.net/net/minecraftforge/forge/maven-metadata.json";
 
-/// Attempts to resolve a loader version for `game_version` directly from the
-/// loader's own upstream metadata, bypassing Modrinth's (possibly stale or
-/// incomplete) hosted manifest. Returns `Ok(None)` if the loader isn't one
-/// this fallback covers, or no matching version could be found upstream
-/// either.
-pub(super) async fn get_fallback_loader_version(
+/// How long a fetched set of upstream candidates is reused before refetching.
+/// This is queried far more often than Modrinth's own manifest changes (e.g.
+/// once per launch, and again per settings-modal open), so a short in-memory
+/// cache keeps this from hammering the upstream Maven hosts; it's separate
+/// from -- and much shorter than -- the main loader-manifest cache, since its
+/// only job is to avoid redundant requests within a short burst of activity.
+const CACHE_TTL: Duration = Duration::from_secs(15 * 60);
+
+type CandidatesByGameVersion = HashMap<String, Vec<LoaderVersion>>;
+
+static CANDIDATE_CACHE: LazyLock<DashMap<ModLoader, (Instant, CandidatesByGameVersion)>> =
+    LazyLock::new(DashMap::new);
+
+/// Fills in any game versions missing from `manifest` (or present but with
+/// no loader versions listed) using the loader's upstream metadata. No-op
+/// for loaders this fallback doesn't cover.
+pub(crate) async fn patch_manifest_gaps(
     loader: ModLoader,
-    game_version: &str,
-    version: &str,
-) -> crate::Result<Option<LoaderVersion>> {
-    let state = State::get().await?;
-
-    let mut candidates = match loader {
-        ModLoader::NeoForge => {
-            fetch_neoforge_candidates(game_version, &state).await?
-        }
-        ModLoader::Forge => fetch_forge_candidates(game_version, &state).await?,
-        ModLoader::Fabric | ModLoader::Quilt | ModLoader::Vanilla => {
-            return Ok(None);
-        }
-    };
-
-    if candidates.is_empty() {
-        return Ok(None);
+    manifest: &mut Manifest,
+) -> crate::Result<()> {
+    let all = fetch_all_candidates_cached(loader).await?;
+    if all.is_empty() {
+        return Ok(());
     }
 
-    // Maven metadata lists versions oldest-first; reverse so "latest" picks
-    // the newest release, matching how Modrinth's own manifest is ordered.
-    candidates.reverse();
+    for (game_version, mut loaders) in all {
+        loaders.reverse();
 
-    let position = candidates
-        .iter()
-        .position(|it| match version {
-            "latest" => true,
-            "stable" => it.stable,
-            id => it.id == *id,
-        })
-        .or_else(|| (version == "stable").then_some(0));
+        if let Some(entry) =
+            manifest.game_versions.iter_mut().find(|v| v.id == game_version)
+        {
+            if entry.loaders.is_empty() {
+                entry.loaders = loaders;
+            }
+        } else {
+            manifest.game_versions.push(ManifestVersion {
+                id: game_version,
+                stable: true,
+                version_group: None,
+                loaders,
+            });
+        }
+    }
 
-    tracing::info!(
-        loader = loader.as_str(),
-        game_version,
-        version,
-        found = position.is_some(),
-        "Resolved loader version from fallback upstream metadata"
-    );
+    Ok(())
+}
 
-    Ok(position.map(|index| candidates.remove(index)))
+async fn fetch_all_candidates_cached(
+    loader: ModLoader,
+) -> crate::Result<CandidatesByGameVersion> {
+    if let Some(entry) = CANDIDATE_CACHE.get(&loader)
+        && entry.0.elapsed() < CACHE_TTL
+    {
+        return Ok(entry.1.clone());
+    }
+
+    let fresh = fetch_all_candidates(loader).await?;
+    CANDIDATE_CACHE.insert(loader, (Instant::now(), fresh.clone()));
+    Ok(fresh)
+}
+
+async fn fetch_all_candidates(
+    loader: ModLoader,
+) -> crate::Result<CandidatesByGameVersion> {
+    let state = State::get().await?;
+
+    match loader {
+        ModLoader::NeoForge => fetch_neoforge_candidates(&state).await,
+        ModLoader::Forge => fetch_forge_candidates(&state).await,
+        ModLoader::Fabric | ModLoader::Quilt | ModLoader::Vanilla => {
+            Ok(HashMap::new())
+        }
+    }
 }
 
 fn loader_version_url(loader: &str, id: &str) -> String {
@@ -89,9 +122,8 @@ fn loader_version_url(loader: &str, id: &str) -> String {
 }
 
 async fn fetch_neoforge_candidates(
-    game_version: &str,
     state: &State,
-) -> crate::Result<Vec<LoaderVersion>> {
+) -> crate::Result<CandidatesByGameVersion> {
     let bytes = fetch_advanced(
         Method::GET,
         NEOFORGE_MAVEN_METADATA_URL,
@@ -109,17 +141,22 @@ async fn fetch_neoforge_candidates(
     let xml = String::from_utf8_lossy(&bytes);
     let versions = parse_maven_versions(&xml);
 
-    Ok(versions
-        .into_iter()
-        .filter(|raw| {
-            neoforge_game_version(raw).as_deref() == Some(game_version)
-        })
-        .map(|id| LoaderVersion {
-            url: loader_version_url("neo", &id),
-            id,
-            stable: false,
-        })
-        .collect())
+    let mut by_game_version: CandidatesByGameVersion = HashMap::new();
+    for raw in versions {
+        let Some(game_version) = neoforge_game_version(&raw) else {
+            continue;
+        };
+
+        by_game_version.entry(game_version).or_default().push(
+            LoaderVersion {
+                url: loader_version_url("neo", &raw),
+                id: raw,
+                stable: false,
+            },
+        );
+    }
+
+    Ok(by_game_version)
 }
 
 /// Maps a raw NeoForge version string (e.g. `21.1.251`, `26.1.0.10-beta`) to
@@ -147,9 +184,8 @@ fn neoforge_game_version(loader_version: &str) -> Option<String> {
 }
 
 async fn fetch_forge_candidates(
-    game_version: &str,
     state: &State,
-) -> crate::Result<Vec<LoaderVersion>> {
+) -> crate::Result<CandidatesByGameVersion> {
     let manifest = fetch_json::<HashMap<String, Vec<String>>>(
         Method::GET,
         FORGE_MAVEN_METADATA_URL,
@@ -161,22 +197,26 @@ async fn fetch_forge_candidates(
     )
     .await?;
 
-    let Some(versions) = manifest.get(game_version) else {
-        return Ok(Vec::new());
-    };
-
-    Ok(versions
-        .iter()
-        .filter_map(|full_version| {
-            // Forge versions are published as `{game_version}-{loader_version}`
-            // (e.g. `1.20.1-47.4.20`); only the loader version half is used
-            // as the id Modrinth hosts per-version profiles under.
-            let id = full_version.split('-').nth(1)?.to_string();
-            Some(LoaderVersion {
-                url: loader_version_url("forge", &id),
-                id,
-                stable: false,
-            })
+    Ok(manifest
+        .into_iter()
+        .map(|(game_version, versions)| {
+            let loaders = versions
+                .iter()
+                .filter_map(|full_version| {
+                    // Forge versions are published as
+                    // `{game_version}-{loader_version}` (e.g.
+                    // `1.20.1-47.4.20`); only the loader version half is
+                    // used as the id Modrinth hosts per-version profiles
+                    // under.
+                    let id = full_version.split('-').nth(1)?.to_string();
+                    Some(LoaderVersion {
+                        url: loader_version_url("forge", &id),
+                        id,
+                        stable: false,
+                    })
+                })
+                .collect();
+            (game_version, loaders)
         })
         .collect())
 }

@@ -740,23 +740,11 @@
   "app.nav.modrinth-account": {
     "message": "Modrinth账户"
   },
-  "app.nav.modrinth-hosting": {
-    "message": "Modrinth Hosting"
-  },
   "app.nav.sign-in-to-modrinth-account": {
     "message": "登录Modrinth账户"
   },
   "app.nav.signed-in-as": {
     "message": "以<user>{username}</user>身份登录"
-  },
-  "app.nav.upgrade-to-modrinth-plus": {
-    "message": "升级至Modrinth+"
-  },
-  "app.news.title": {
-    "message": "新闻"
-  },
-  "app.news.view-all": {
-    "message": "查看所有新闻"
   },
   "app.project.install-button.already-installed": {
     "message": "此项目已安装"
@@ -892,12 +880,6 @@
   },
   "app.settings.privacy.discord-rich-presence.title": {
     "message": "Discord Rich Presence"
-  },
-  "app.settings.privacy.telemetry.description": {
-    "message": "Modrinth 收集匿名分析和使用数据，以提升用户体验并为您提供个性化服务。若禁用此选项，即表示您选择退出，您的数据将不再被收集。"
-  },
-  "app.settings.privacy.telemetry.title": {
-    "message": "遥测"
   },
   "app.settings.resource-management.always-show-copy-details.description": {
     "message": "在安装排队或运行时显示“复制详细信息”选项。对于失败或中断的安装，该选项始终可用。"
@@ -1129,21 +1111,6 @@
   },
   "app.skins.toggle-ears-features-on": {
     "message": "切换至开"
-  },
-  "app.survey.body": {
-    "message": "您是否介意回答一些关于使用 Modrinth App 的问题？"
-  },
-  "app.survey.footer": {
-    "message": "此反馈将直接发送给Modrinth团队，为今后的更新提供指导！"
-  },
-  "app.survey.no-thanks": {
-    "message": "不，谢谢"
-  },
-  "app.survey.take-survey": {
-    "message": "参与调研"
-  },
-  "app.survey.title": {
-    "message": "嗨，Modrinth用户！"
   },
   "app.update-popup.body.download-complete": {
     "message": "Modrinth App v{version} 更新已下载完成！立即重启更新，或退出时自动安装。"

@@ -398,11 +398,23 @@
   "app.host.detail.accept-eula": {
     "message": "I accept the Minecraft EULA"
   },
+  "app.host.detail.allow-flight-description": {
+    "message": "Allow survival players to fly (without this, anti-cheat may kick flying players)"
+  },
+  "app.host.detail.allow-flight-label": {
+    "message": "Allow flight"
+  },
+  "app.host.detail.allow-nether-label": {
+    "message": "Allow the Nether"
+  },
   "app.host.detail.browse-content": {
     "message": "Browse content"
   },
   "app.host.detail.change-icon": {
     "message": "Change icon"
+  },
+  "app.host.detail.command-blocks-label": {
+    "message": "Command blocks"
   },
   "app.host.detail.command-placeholder": {
     "message": "Type a server command (e.g. /op Notch)…"
@@ -410,20 +422,50 @@
   "app.host.detail.delete-server": {
     "message": "Delete server"
   },
+  "app.host.detail.difficulty-label": {
+    "message": "Difficulty"
+  },
   "app.host.detail.eula-notice": {
     "message": "Starting this server requires accepting the Minecraft End User License Agreement (EULA) on its behalf: https://www.minecraft.net/eula"
   },
   "app.host.detail.extra-args-label": {
     "message": "Extra JVM arguments"
   },
+  "app.host.detail.gamemode-label": {
+    "message": "Game mode"
+  },
+  "app.host.detail.hardcore-description": {
+    "message": "Players are permanently banned when they die"
+  },
+  "app.host.detail.hardcore-label": {
+    "message": "Hardcore"
+  },
+  "app.host.detail.max-players-label": {
+    "message": "Max players"
+  },
   "app.host.detail.memory-label": {
     "message": "Max memory (MB)"
+  },
+  "app.host.detail.motd-label": {
+    "message": "Message of the day"
   },
   "app.host.detail.no-content": {
     "message": "No content installed"
   },
+  "app.host.detail.online-mode-description": {
+    "message": "Verify players own Minecraft. Turning this off allows unauthenticated clients to connect."
+  },
+  "app.host.detail.online-mode-label": {
+    "message": "Online mode"
+  },
   "app.host.detail.port-label": {
     "message": "Port"
+  },
+  "app.host.detail.pvp-description": {
+    "message": "Allow players to fight each other"
+  },
+  "app.host.detail.pvp-label": {
+    "message": "PvP"
   },
   "app.host.detail.remove-icon": {
     "message": "Remove icon"
@@ -437,6 +479,15 @@
   "app.host.detail.save-settings": {
     "message": "Save settings"
   },
+  "app.host.detail.section-network": {
+    "message": "Network & performance"
+  },
+  "app.host.detail.section-rules": {
+    "message": "Rules"
+  },
+  "app.host.detail.section-world": {
+    "message": "World"
+  },
   "app.host.detail.send-command": {
     "message": "Send"
   },
@@ -445,6 +496,12 @@
   },
   "app.host.detail.settings-modal-title": {
     "message": "Server settings"
+  },
+  "app.host.detail.simulation-distance-label": {
+    "message": "Simulation distance"
+  },
+  "app.host.detail.spawn-protection-label": {
+    "message": "Spawn protection radius"
   },
   "app.host.detail.start": {
     "message": "Start"
@@ -466,6 +523,15 @@
   },
   "app.host.detail.upload-files": {
     "message": "Upload files"
+  },
+  "app.host.detail.view-distance-label": {
+    "message": "View distance"
+  },
+  "app.host.detail.whitelist-description": {
+    "message": "Only allow whitelisted players to join"
+  },
+  "app.host.detail.whitelist-label": {
+    "message": "Whitelist"
   },
   "app.host.empty": {
     "message": "No hosted servers yet. Add one to get started."
@@ -1873,6 +1939,90 @@
   },
   "app.user.project.install-to-instance": {
     "message": "Install to instance"
+  },
+  "app.welcome-guide.back-button": {
+    "message": "Back"
+  },
+  "app.welcome-guide.curseforge.api-key-placeholder": {
+    "message": "Paste your personal CurseForge API key..."
+  },
+  "app.welcome-guide.curseforge.description": {
+    "message": "CurseForge requires every app to use its own API key. It's free, takes under a minute, and you only need to do this once."
+  },
+  "app.welcome-guide.curseforge.get-key-button": {
+    "message": "Get your free API key"
+  },
+  "app.welcome-guide.curseforge.optional-note": {
+    "message": "You can skip this and add it later from Settings → Integrations if you'd rather."
+  },
+  "app.welcome-guide.curseforge.title": {
+    "message": "Connect your CurseForge account"
+  },
+  "app.welcome-guide.done.description": {
+    "message": "You can revisit this anytime, and manage your CurseForge key from Settings → Integrations → CurseForge. Have fun!"
+  },
+  "app.welcome-guide.done.title": {
+    "message": "You're all set"
+  },
+  "app.welcome-guide.features.content.description": {
+    "message": "Find and install mods, modpacks, resource packs, and shaders from both sites."
+  },
+  "app.welcome-guide.features.content.title": {
+    "message": "Search Modrinth and CurseForge"
+  },
+  "app.welcome-guide.features.customize.description": {
+    "message": "Switch themes and tweak the launcher to fit how you like to play."
+  },
+  "app.welcome-guide.features.customize.title": {
+    "message": "Make it yours"
+  },
+  "app.welcome-guide.features.instances.description": {
+    "message": "Create and organize as many separate Minecraft setups as you need."
+  },
+  "app.welcome-guide.features.instances.title": {
+    "message": "Manage instances your way"
+  },
+  "app.welcome-guide.features.performance.description": {
+    "message": "Control memory allocation, Java installations, and resource limits."
+  },
+  "app.welcome-guide.features.performance.title": {
+    "message": "Tune performance"
+  },
+  "app.welcome-guide.features.servers.description": {
+    "message": "Spin up and manage Minecraft servers without leaving the launcher."
+  },
+  "app.welcome-guide.features.servers.title": {
+    "message": "Host servers in-app"
+  },
+  "app.welcome-guide.features.title": {
+    "message": "What you can do"
+  },
+  "app.welcome-guide.get-started-button": {
+    "message": "Get started"
+  },
+  "app.welcome-guide.intro.description": {
+    "message": "Let's take a minute to get you set up. We'll show you around and help you connect your own CurseForge API key so you can browse and install CurseForge content."
+  },
+  "app.welcome-guide.intro.title": {
+    "message": "Welcome to Sleepless Launcher"
+  },
+  "app.welcome-guide.next-button": {
+    "message": "Next"
+  },
+  "app.welcome-guide.stages.curseforge.title": {
+    "message": "Connect CurseForge"
+  },
+  "app.welcome-guide.stages.done.title": {
+    "message": "You're all set"
+  },
+  "app.welcome-guide.stages.features.title": {
+    "message": "What you can do"
+  },
+  "app.welcome-guide.stages.welcome.title": {
+    "message": "Welcome"
+  },
+  "app.welcome-guide.start-playing-button": {
+    "message": "Start playing"
   },
   "app.welcome-screen.create-instance": {
     "message": "Create an instance"

@@ -737,23 +737,11 @@
   "app.nav.modrinth-account": {
     "message": "Account Modrinth"
   },
-  "app.nav.modrinth-hosting": {
-    "message": "Modrinth Hosting"
-  },
   "app.nav.sign-in-to-modrinth-account": {
     "message": "Accedi a un account Modrinth"
   },
   "app.nav.signed-in-as": {
     "message": "Accesso effettuato come <user>{username}</user>"
-  },
-  "app.nav.upgrade-to-modrinth-plus": {
-    "message": "Abbonati a Modrinth+"
-  },
-  "app.news.title": {
-    "message": "Notizie"
-  },
-  "app.news.view-all": {
-    "message": "Leggi tutte le notizie"
   },
   "app.project.install-button.already-installed": {
     "message": "Questo progetto è già stato installato"
@@ -889,12 +877,6 @@
   },
   "app.settings.privacy.discord-rich-presence.title": {
     "message": "Rich Presence su Discord"
-  },
-  "app.settings.privacy.telemetry.description": {
-    "message": "Modrinth raccoglie analitiche e dati anonimi per migliorare l'esperienza utente e personalizzarne la tua. Disabilitando questa opzione, i tuoi dati non verranno più raccolti."
-  },
-  "app.settings.privacy.telemetry.title": {
-    "message": "Telemetria"
   },
   "app.settings.resource-management.always-show-copy-details.description": {
     "message": "Mostra il pulsante Copia info mentre un'installazione è in coda o in esecuzione. Verrà sempre mostrato dopo un errore o un'interruzione."
@@ -1126,21 +1108,6 @@
   },
   "app.skins.toggle-ears-features-on": {
     "message": "Attiva"
-  },
-  "app.survey.body": {
-    "message": "Ti dispiacerebbe rispondere ad alcune domande sulla tua esperienza con Modrinth App?"
-  },
-  "app.survey.footer": {
-    "message": "Le tue risposte andranno direttamente al team di Modrinth e aiuteranno a guidare gli aggiornamenti futuri!"
-  },
-  "app.survey.no-thanks": {
-    "message": "No, grazie"
-  },
-  "app.survey.take-survey": {
-    "message": "Vai al sondaggio"
-  },
-  "app.survey.title": {
-    "message": "Ciao, utente di Modrinth!"
   },
   "app.update-popup.body.download-complete": {
     "message": "Modrinth App v{version} è stata scaricata. Riavvia per aggiornare ora, o avverrà in automatico alla chiusura dell'app."

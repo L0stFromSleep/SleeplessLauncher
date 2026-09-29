@@ -33,7 +33,7 @@ use tokio::process::Command;
 
 mod args;
 pub(crate) mod hooks;
-mod loader_fallback;
+pub(crate) mod loader_fallback;
 
 pub mod download;
 pub mod quick_play_version;
@@ -175,11 +175,16 @@ pub async fn get_loader_version_from_profile(
         id => it.id == *id,
     };
 
+    // `get_loader_versions` patches any game-version gaps in Modrinth's
+    // hosted manifest using the loader's own upstream metadata (see
+    // `loader_fallback`), so this already sees the full picture.
     let versions =
         crate::api::metadata::get_loader_versions(loader.as_meta_str()).await?;
 
-    let resolved = loader_versions_for_game_version(&versions, game_version)
-        .and_then(|loaders| {
+    if let Some(loaders) =
+        loader_versions_for_game_version(&versions, game_version)
+    {
+        let loader_version =
             loaders
                 .iter()
                 .find(|x| filter(x))
@@ -187,19 +192,12 @@ pub async fn get_loader_version_from_profile(
                     loaders.first()
                 } else {
                     None
-                })
-                .cloned()
-        });
+                });
 
-    if resolved.is_some() {
-        return Ok(resolved);
+        Ok(loader_version.cloned())
+    } else {
+        Ok(None)
     }
-
-    // Modrinth's hosted manifest can end up missing a game version it should
-    // cover (an outage or gap in its generation job); fall back to the
-    // loader's own upstream metadata before giving up.
-    loader_fallback::get_fallback_loader_version(loader, game_version, version)
-        .await
 }
 
 fn loader_versions_for_game_version<'a>(
