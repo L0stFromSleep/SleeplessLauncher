@@ -373,8 +373,12 @@ pub(super) async fn collect_publish_snapshot(
     let mut disabled_external_files = HashSet::new();
 
     for item in items {
+        let has_modrinth_version = item.version.is_some()
+            && matches!(item.provider, Some(ContentProvider::Modrinth));
+
         if item.enabled {
-            if let Some(version) = item.version {
+            if has_modrinth_version {
+                let version = item.version.expect("checked above");
                 if seen_version_ids.insert(version.id.clone()) {
                     version_ids.push(version.id);
                 }
@@ -397,9 +401,10 @@ pub(super) async fn collect_publish_snapshot(
             continue;
         }
 
-        let is_modpack = item.version.as_ref().is_some_and(|version| {
-            modpack_id.as_deref() == Some(version.id.as_str())
-        });
+        let is_modpack = has_modrinth_version
+            && item.version.as_ref().is_some_and(|version| {
+                modpack_id.as_deref() == Some(version.id.as_str())
+            });
         if is_modpack {
             continue;
         }
@@ -408,7 +413,8 @@ pub(super) async fn collect_publish_snapshot(
             disabled_project_ids.insert(project.id.clone());
         }
 
-        if let Some(version) = item.version {
+        if has_modrinth_version {
+            let version = item.version.expect("checked above");
             if seen_disabled_version_ids.insert(version.id.clone()) {
                 disabled_version_ids.push(version.id);
             }

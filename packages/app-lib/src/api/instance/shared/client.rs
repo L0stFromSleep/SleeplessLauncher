@@ -1012,22 +1012,39 @@ pub(super) async fn shared_instances_request_error<T>(
 ) -> crate::Result<T> {
     let status = response.status();
     let request_id = response_request_id(&response);
+    let body = response.text().await.ok();
+    let description = body.as_deref().and_then(response_error_description);
     tracing::warn!(
         operation,
         method = method.as_str(),
         path,
         status = status.as_u16(),
         request_id = request_id.as_deref().unwrap_or("none"),
+        body = body.as_deref().unwrap_or(""),
         "Shared instances API request failed"
     );
-    let message = format!(
-        "Shared instances API request {operation} {method} {path} failed with status {status}"
-    );
+    let message = match description {
+        Some(description) => format!(
+            "Shared instances API request {operation} {method} {path} failed with status {status}: {description}"
+        ),
+        None => format!(
+            "Shared instances API request {operation} {method} {path} failed with status {status}"
+        ),
+    };
     if status.is_server_error() {
         return Err(crate::ErrorKind::SharedInstancesApiError(message).into());
     }
 
     Err(crate::ErrorKind::OtherError(message).into())
+}
+
+fn response_error_description(body: &str) -> Option<String> {
+    let value: serde_json::Value = serde_json::from_str(body).ok()?;
+    value
+        .get("description")
+        .or_else(|| value.get("error"))
+        .and_then(|value| value.as_str())
+        .map(str::to_string)
 }
 
 pub(super) fn response_request_id(

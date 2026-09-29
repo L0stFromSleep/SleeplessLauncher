@@ -9,7 +9,9 @@ use crate::install::{
     InstallJobSnapshot, SharedInstanceExternalFileData,
     SharedInstanceInstallData,
 };
-use crate::state::instances::{InstanceLink, SharedInstanceAttachment};
+use crate::state::instances::{
+    ContentProvider, InstanceLink, SharedInstanceAttachment,
+};
 use crate::state::{
     AppliedContentSetPatch, CacheBehaviour, CachedEntry, ContentSetSyncStatus,
     ContentSourceKind, EditInstance, ModLoader, ModrinthCredentials,
