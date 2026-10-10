@@ -2780,6 +2780,9 @@
   "instance.shared-instance.publish-review.description": {
     "message": "Review the content changes and choose any config files to include in this update."
   },
+  "instance.shared-instance.publish-review.force-publish-button": {
+    "message": "Push anyway"
+  },
   "instance.shared-instance.publish-review.header": {
     "message": "Review changes"
   },

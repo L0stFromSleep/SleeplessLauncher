@@ -5,9 +5,8 @@
 		:admonition-header="formatMessage(messages.admonitionHeader)"
 		:description="formatMessage(messages.description)"
 		:diffs="publishDiffs"
-		:confirm-label="formatMessage(messages.publishButton)"
+		:confirm-label="formatMessage(hasChanges ? messages.publishButton : messages.forcePublishButton)"
 		:confirm-icon="UploadIcon"
-		:confirm-disabled="publishDiffs.length === 0 && selectedConfigPaths.length === 0"
 		:added-label="formatMessage(messages.addedLabel)"
 		:removed-label="formatMessage(messages.removedLabel)"
 		@confirm="publishChanges"
@@ -94,6 +93,9 @@ const selectedConfigPaths = computed(() => {
 		isConfigPathSelected(path, includedPaths, excludedPaths),
 	)
 })
+const hasChanges = computed(
+	() => publishDiffs.value.length > 0 || selectedConfigPaths.value.length > 0,
+)
 
 async function show(e?: MouseEvent) {
 	if (state.value !== 'idle') return
@@ -206,6 +208,10 @@ const messages = defineMessages({
 	publishButton: {
 		id: 'instance.shared-instance.publish-review.publish-button',
 		defaultMessage: 'Push update',
+	},
+	forcePublishButton: {
+		id: 'instance.shared-instance.publish-review.force-publish-button',
+		defaultMessage: 'Push anyway',
 	},
 	addedLabel: {
 		id: 'instance.shared-instance.publish-review.added-label',
