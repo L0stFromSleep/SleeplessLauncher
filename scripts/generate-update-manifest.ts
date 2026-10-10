@@ -3,7 +3,7 @@
  * (apps/app/tauri-release.conf.json's `plugins.updater.endpoints`, currently
  * a GitHub Releases "latest" alias) from the signed installer that
  * `tauri build --config tauri-release.conf.json --features updater` just
- * produced. Used by scripts/release-app.sh and release-app.ps1.
+ * produced. Used by scripts/release-app.ts.
  *
  * Usage: node scripts/run.mjs generate-update-manifest v1.2.3 owner/repo
  */

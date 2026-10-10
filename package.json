@@ -7,7 +7,7 @@
     "web:build": "turbo run build --filter=@modrinth/frontend",
     "app:dev": "turbo run dev --filter=@modrinth/app",
     "app:build": "turbo run build --filter=@modrinth/app",
-    "app:release": "bash scripts/release-app.sh",
+    "app:release": "node scripts/run.mjs release-app",
     "docs:dev": "turbo run dev --filter=@modrinth/docs",
     "pages:build": "pnpm i18n:coverage && NITRO_PRESET=cloudflare-pages pnpm --filter frontend run build",
     "build": "turbo run build --continue",

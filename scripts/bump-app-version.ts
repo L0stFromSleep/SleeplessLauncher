@@ -1,7 +1,7 @@
 /**
  * Sets the desktop app's version (in apps/app-frontend/package.json, which
  * apps/app/tauri.conf.json reads its `version` from, and apps/app/Cargo.toml)
- * from a release tag. Used by scripts/release-app.sh and release-app.ps1.
+ * from a release tag. Used by scripts/release-app.ts.
  *
  * Usage: node scripts/run.mjs bump-app-version v1.2.3
  */
