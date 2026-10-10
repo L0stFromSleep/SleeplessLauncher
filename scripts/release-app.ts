@@ -22,11 +22,17 @@ import { fileURLToPath } from 'url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(__dirname, '..')
 
-function run(command: string, args: string[]) {
+// On Windows, `.cmd` shims (like pnpm's) can only be spawned via a shell, but
+// `shell: true` hands the joined command line to cmd.exe, which -- unlike
+// Node's non-shell spawn -- does not re-quote args containing spaces, so a
+// path like "C:\...\Sleepless Launcher_1.1.2...msi" silently splits into two
+// arguments. Real executables (gh.exe, git.exe) don't need a shell at all, so
+// only pnpm should be run with useShell: true.
+function run(command: string, args: string[], { useShell = false } = {}) {
 	const result = spawnSync(command, args, {
 		cwd: REPO_ROOT,
 		stdio: 'inherit',
-		shell: process.platform === 'win32',
+		shell: useShell && process.platform === 'win32',
 	})
 	if (result.error) {
 		throw result.error
@@ -40,7 +46,6 @@ function captureOutput(command: string, args: string[]): string {
 	const result = spawnSync(command, args, {
 		cwd: REPO_ROOT,
 		encoding: 'utf8',
-		shell: process.platform === 'win32',
 	})
 	if (result.error) {
 		throw result.error
@@ -56,7 +61,6 @@ function commandExists(command: string): boolean {
 	const result = spawnSync(command, ['--version'], {
 		cwd: REPO_ROOT,
 		stdio: 'ignore',
-		shell: process.platform === 'win32',
 	})
 	return !result.error && result.status === 0
 }
@@ -97,7 +101,6 @@ function main() {
 	run('git', ['add', ...versionedFiles])
 	const stagedDiff = spawnSync('git', ['diff', '--cached', '--quiet', '--', ...versionedFiles], {
 		cwd: REPO_ROOT,
-		shell: process.platform === 'win32',
 	})
 	if (stagedDiff.status !== 0) {
 		console.log(`Committing version bump to ${version}...`)
@@ -114,16 +117,20 @@ function main() {
 	fs.rmSync(join(REPO_ROOT, 'target/release/bundle/nsis'), { recursive: true, force: true })
 
 	console.log('Building app (release, updater-signed)...')
-	run('pnpm', [
-		'--filter',
-		'@modrinth/app',
-		'tauri',
-		'build',
-		'--config',
-		'tauri-release.conf.json',
-		'--features',
-		'updater',
-	])
+	run(
+		'pnpm',
+		[
+			'--filter',
+			'@modrinth/app',
+			'tauri',
+			'build',
+			'--config',
+			'tauri-release.conf.json',
+			'--features',
+			'updater',
+		],
+		{ useShell: true },
+	)
 
 	const msiDir = join(REPO_ROOT, 'target/release/bundle/msi')
 	const nsisDir = join(REPO_ROOT, 'target/release/bundle/nsis')
