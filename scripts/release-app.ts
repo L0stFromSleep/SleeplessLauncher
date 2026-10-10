@@ -84,12 +84,27 @@ function main() {
 		process.exit(1)
 	}
 
+	const version = tag.replace(/^v/, '')
+	const versionedFiles = ['apps/app-frontend/package.json', 'apps/app/Cargo.toml']
+
 	console.log(`Bumping app version to ${tag}...`)
 	run(process.execPath, [
 		'--disable-warning=MODULE_TYPELESS_PACKAGE_JSON',
 		join(__dirname, 'bump-app-version.ts'),
 		tag,
 	])
+
+	run('git', ['add', ...versionedFiles])
+	const stagedDiff = spawnSync('git', ['diff', '--cached', '--quiet', '--', ...versionedFiles], {
+		cwd: REPO_ROOT,
+		shell: process.platform === 'win32',
+	})
+	if (stagedDiff.status !== 0) {
+		console.log(`Committing version bump to ${version}...`)
+		run('git', ['commit', '-m', `Bump app version to ${version}`])
+	} else {
+		console.log(`${versionedFiles.join(' and ')} already at ${version}, nothing to commit.`)
+	}
 
 	// tauri build doesn't clean target/release/bundle/ between runs, so a stale
 	// installer from a previous local build can otherwise get uploaded alongside
