@@ -1,6 +1,6 @@
 use crate::state::instances::{
     ContentSourceKind, Instance, InstanceIconConfig, InstanceLaunchOverrides,
-    InstanceLink,
+    InstanceLink, ModJarPatch,
     adapters::sqlite::{content_rows, instance_rows},
 };
 use crate::state::{
@@ -82,6 +82,13 @@ pub struct InstanceLaunchOverridesPatch {
     )]
     pub game_resolution: Option<Option<WindowSize>>,
     pub hooks: Option<Hooks>,
+    pub jar_patches: Option<Vec<ModJarPatch>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "serde_with::rust::double_option"
+    )]
+    pub quick_play_singleplayer_world: Option<Option<String>>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -298,6 +305,14 @@ fn apply_launch_overrides_patch(
     }
     if let Some(hooks) = patch.hooks {
         overrides.hooks = hooks;
+    }
+    if let Some(jar_patches) = patch.jar_patches {
+        overrides.jar_patches = jar_patches;
+    }
+    if let Some(quick_play_singleplayer_world) =
+        patch.quick_play_singleplayer_world
+    {
+        overrides.quick_play_singleplayer_world = quick_play_singleplayer_world;
     }
 
     overrides

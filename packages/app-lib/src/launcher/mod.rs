@@ -33,6 +33,7 @@ use tokio::process::Command;
 
 mod args;
 pub(crate) mod hooks;
+pub(crate) mod jar_patch;
 pub(crate) mod loader_fallback;
 
 pub mod download;

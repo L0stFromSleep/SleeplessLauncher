@@ -30,7 +30,7 @@ pub mod data {
         DirectoryInfo, EditInstance, Hooks, InstanceIconBackground,
         InstanceIconConfig, InstanceInstallCandidate, InstanceInstallTarget,
         InstanceLaunchOverridesPatch, InstanceLink, InstanceMetadata,
-        JavaVersion, LinkedModpackInfo, MemorySettings, ModLoader,
+        JavaVersion, LinkedModpackInfo, MemorySettings, ModJarPatch, ModLoader,
         ModrinthCredentials, OnboardingChecklist, Organization, OwnerType,
         ProcessMetadata, Project, ProjectType, ProjectV3, SearchResult,
         SearchResults, SearchResultsV3, Settings, SharedInstanceAttachment,

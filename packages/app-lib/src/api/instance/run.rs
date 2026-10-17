@@ -79,6 +79,30 @@ async fn run_credentials(
         .into());
     }
 
+    let quick_play_type = match (
+        &quick_play_type,
+        &context.launch_overrides.quick_play_singleplayer_world,
+    ) {
+        (QuickPlayType::None, Some(world)) => {
+            QuickPlayType::Singleplayer(world.clone())
+        }
+        _ => quick_play_type,
+    };
+
+    if !context.launch_overrides.jar_patches.is_empty() {
+        let instance_dir = crate::util::io::canonicalize(
+            state
+                .directories
+                .instances_dir()
+                .join(&context.instance.path),
+        )?;
+        crate::launcher::jar_patch::apply_jar_patches(
+            &instance_dir,
+            &context.launch_overrides.jar_patches,
+        )
+        .await?;
+    }
+
     let pre_launch_hook = context
         .launch_overrides
         .hooks

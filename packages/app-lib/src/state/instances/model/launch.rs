@@ -2,6 +2,44 @@ use crate::state::{
     ContentSet, Hooks, Instance, InstanceLink, MemorySettings, WindowSize,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::PathBuf;
+
+/// A declarative patch applied to a single mod jar inside an instance's
+/// `mods` folder right before launch. Lets an instance work around a mod
+/// bug (or just customize its behavior) without hand-editing the jar every
+/// time it's updated or reinstalled: the launcher reapplies the patch
+/// automatically whenever the jar or the patch definition changes, and
+/// restores from a kept original (`<jar>.orig`) each time so patches never
+/// stack on top of each other.
+#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct ModJarPatch {
+    /// File name of the jar to patch, as it appears in the instance's
+    /// `mods` folder (e.g. `"nightmarespell.jar"`).
+    pub jar_file_name: String,
+    /// Entries inside the jar to overwrite wholesale, keyed by their
+    /// path within the jar (e.g.
+    /// `"data/voidspell/worldgen/noise_settings/void_realm.json"`), with
+    /// the value being an absolute path on disk to read the replacement
+    /// bytes from.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub replace_entries: HashMap<String, PathBuf>,
+    /// SpongePowered Mixin config files inside the jar, keyed by their
+    /// path within the jar (e.g. `"voidspell.mixins.json"`), with the
+    /// value being the list of mixin class names to strip out of every
+    /// string array in that file (covers `"mixins"`, `"client"`,
+    /// `"server"`, or any other array the mod happens to use) before the
+    /// game loads it. A path listed here is ignored if it's also present
+    /// in `replace_entries`.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub remove_mixins: HashMap<String, Vec<String>>,
+}
+
+impl ModJarPatch {
+    pub fn is_noop(&self) -> bool {
+        self.replace_entries.is_empty() && self.remove_mixins.is_empty()
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InstanceLaunchOverrides {
@@ -13,6 +51,15 @@ pub struct InstanceLaunchOverrides {
     pub force_fullscreen: Option<bool>,
     pub game_resolution: Option<WindowSize>,
     pub hooks: Hooks,
+    /// Jar patches applied to this instance's mods before every launch.
+    /// See [`ModJarPatch`].
+    pub jar_patches: Vec<ModJarPatch>,
+    /// When set, a launch that wasn't explicitly asked to join a server
+    /// (i.e. [`crate::instance::QuickPlayType::None`]) boots straight into
+    /// this singleplayer world instead of stopping at the title screen.
+    /// Useful for an instance whose default menu is a modded multiplayer
+    /// front door you don't want to go through.
+    pub quick_play_singleplayer_world: Option<String>,
 }
 
 impl InstanceLaunchOverrides {
@@ -30,6 +77,8 @@ impl InstanceLaunchOverrides {
                 wrapper: None,
                 post_exit: None,
             },
+            jar_patches: Vec::new(),
+            quick_play_singleplayer_world: None,
         }
     }
 }
@@ -50,6 +99,10 @@ pub(crate) struct InstanceLaunchOverridesData {
     pub game_resolution: Option<WindowSize>,
     #[serde(default)]
     pub hooks: Hooks,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub jar_patches: Vec<ModJarPatch>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quick_play_singleplayer_world: Option<String>,
 }
 
 impl InstanceLaunchOverridesData {
@@ -66,6 +119,8 @@ impl InstanceLaunchOverridesData {
             force_fullscreen: self.force_fullscreen,
             game_resolution: self.game_resolution,
             hooks: self.hooks,
+            jar_patches: self.jar_patches,
+            quick_play_singleplayer_world: self.quick_play_singleplayer_world,
         }
     }
 }
@@ -80,6 +135,10 @@ impl From<&InstanceLaunchOverrides> for InstanceLaunchOverridesData {
             force_fullscreen: overrides.force_fullscreen,
             game_resolution: overrides.game_resolution,
             hooks: overrides.hooks.clone(),
+            jar_patches: overrides.jar_patches.clone(),
+            quick_play_singleplayer_world: overrides
+                .quick_play_singleplayer_world
+                .clone(),
         }
     }
 }

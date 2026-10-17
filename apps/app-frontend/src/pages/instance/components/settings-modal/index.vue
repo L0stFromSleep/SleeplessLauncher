@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Labrinth } from '@modrinth/api-client'
 import {
+	BugIcon,
 	ChevronRightIcon,
 	CodeIcon,
 	CoffeeIcon,
@@ -32,6 +33,7 @@ import HooksSettings from './hooks-settings.vue'
 import InstallationSettings from './installation-settings.vue'
 import { provideInstanceSettings } from './instance-settings-context.ts'
 import JavaSettings from './java-settings.vue'
+import PatchesSettings from './patches-settings.vue'
 import SharingSettings from './sharing-settings.vue'
 import WindowSettings from './window-settings.vue'
 
@@ -130,6 +132,14 @@ const tabs = computed<TabbedModalTab[]>(() => [
 		}),
 		icon: CodeIcon,
 		content: HooksSettings,
+	},
+	{
+		name: defineMessage({
+			id: 'instance.settings.tabs.patches',
+			defaultMessage: 'Patches',
+		}),
+		icon: BugIcon,
+		content: PatchesSettings,
 	},
 ])
 

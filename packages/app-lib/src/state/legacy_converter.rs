@@ -639,6 +639,8 @@ where
         force_fullscreen: input.force_fullscreen,
         game_resolution: input.game_resolution,
         hooks: input.hooks,
+        jar_patches: Vec::new(),
+        quick_play_singleplayer_world: None,
     };
     let launch_overrides_data = serde_json::to_string(
         &InstanceLaunchOverridesData::from(&launch_overrides),

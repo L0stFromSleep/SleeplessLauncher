@@ -37,6 +37,19 @@ export type GameInstance = {
 	force_fullscreen?: boolean
 	game_resolution?: [number, number]
 	hooks: Hooks
+	jar_patches: ModJarPatch[]
+	quick_play_singleplayer_world?: string
+}
+
+// A declarative patch applied to one mod jar in this instance's `mods`
+// folder right before launch: wholesale file replacements (keyed by the
+// path inside the jar) and/or mixin class names to strip out of a
+// SpongePowered Mixin config file (keyed the same way). See
+// `ModJarPatch` in packages/app-lib/src/state/instances/model/launch.rs.
+export type ModJarPatch = {
+	jar_file_name: string
+	replace_entries?: Record<string, string>
+	remove_mixins?: Record<string, string[]>
 }
 
 export type IconBackground =

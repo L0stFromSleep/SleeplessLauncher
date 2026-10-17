@@ -10,7 +10,7 @@ use theseus::data::{
     EditInstance as CoreEditInstance, InstanceInstallCandidate,
     InstanceInstallTarget, InstanceLaunchOverridesPatch,
     InstanceLink as CoreInstanceLink, InstanceMetadata, LinkedModpackInfo,
-    SharedInstanceAttachment as CoreSharedInstanceAttachment,
+    ModJarPatch, SharedInstanceAttachment as CoreSharedInstanceAttachment,
     SharedInstanceRole,
 };
 use theseus::instance::InstallCurseForgeProjectWithDependenciesRequest;
@@ -113,6 +113,8 @@ pub struct Instance {
     pub force_fullscreen: Option<bool>,
     pub game_resolution: Option<WindowSize>,
     pub hooks: Hooks,
+    pub jar_patches: Vec<ModJarPatch>,
+    pub quick_play_singleplayer_world: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -244,6 +246,13 @@ pub struct EditInstance {
     )]
     pub game_resolution: Option<Option<WindowSize>>,
     pub hooks: Option<Hooks>,
+    pub jar_patches: Option<Vec<ModJarPatch>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "serde_with::rust::double_option"
+    )]
+    pub quick_play_singleplayer_world: Option<Option<String>>,
 }
 
 impl From<InstanceMetadata> for Instance {
@@ -281,6 +290,10 @@ impl From<InstanceMetadata> for Instance {
             force_fullscreen: metadata.launch_overrides.force_fullscreen,
             game_resolution: metadata.launch_overrides.game_resolution,
             hooks: metadata.launch_overrides.hooks,
+            jar_patches: metadata.launch_overrides.jar_patches,
+            quick_play_singleplayer_world: metadata
+                .launch_overrides
+                .quick_play_singleplayer_world,
         }
     }
 }
@@ -455,6 +468,9 @@ fn edit_to_core(edit_instance: EditInstance) -> Result<CoreEditInstance> {
             force_fullscreen: edit_instance.force_fullscreen,
             game_resolution: edit_instance.game_resolution,
             hooks: edit_instance.hooks,
+            jar_patches: edit_instance.jar_patches,
+            quick_play_singleplayer_world: edit_instance
+                .quick_play_singleplayer_world,
         }),
         content_set_patch: Some(AppliedContentSetPatch {
             source_kind: None,
